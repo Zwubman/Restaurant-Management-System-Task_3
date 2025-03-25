@@ -20,7 +20,6 @@ const userSchema = mongoose.Schema({
   },
   password: {
     type: String,
-    required: true
   },
   phone: {
     type: String,
@@ -43,6 +42,11 @@ const userSchema = mongoose.Schema({
   salary: {
     type: String,
     allowNull: true,
+  },
+  salaryCurrency: {
+    type: String,
+    enum: ["ETB", "USD", "CAD", "MXN", "CNY", "JPY"],
+    required: true
   },
   myOrders: [
     {
