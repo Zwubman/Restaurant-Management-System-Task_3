@@ -58,7 +58,7 @@ export const restaurantLogIn = async (req, res) => {
     }
 
     const isMatch = await bcrypt.compare(
-      restaurantEmail,
+      restaurantPassword,
       restaurant.restaurantPassword
     );
 
@@ -79,8 +79,8 @@ export const restaurantLogIn = async (req, res) => {
 
     const refreshToken = jwt.sign(
       {
-        id: restaurant._id,
-        email: restaurant.email,
+        restaurantId: restaurant._id,
+        restaurantEmail: restaurant.restaurantEmail,
       },
       process.env.REFRESH_TOKEN_KEY,
       { expiresIn: "60d" }
@@ -93,4 +93,37 @@ export const restaurantLogIn = async (req, res) => {
       .status(200)
       .json({ message: "Login successfully.", accessToken, refreshToken });
   } catch (error) {}
+};
+
+//Update restaurant information
+export const updateRestaurant = async (req, res) => {
+  try {
+    const {
+      restaurantName,
+      restaurantPassword,
+      restaurantCountry,
+      restaurantEmail,
+      restaurantPhone,
+      restaurantAddress,
+    } = req.body;
+
+    const updatedRestaurant = await Restaurant.findOneAndUpdate(
+      { restaurantEmail: restaurantEmail },
+      { $set: req.body },
+      { new: true }
+    );
+
+    if (!updatedRestaurant) {
+      return res
+        .status(404)
+        .json({ message: "Restaurant not found and not updated." });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Restaurant successfully updated.", updatedRestaurant });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to update restaurant information." });
+  }
 };
