@@ -18,9 +18,9 @@ export const registerNewEmployee = async (req, res) => {
     const isExist = await User.findOne({ email: email });
 
     if (!salary || !role || !salaryCurrency) {
-      return res
-        .status(300)
-        .json({ message: "Employee salary, role and salaryCurrency is required. " });
+      return res.status(300).json({
+        message: "Employee salary, role and salaryCurrency is required. ",
+      });
     }
 
     if (isExist) {
@@ -58,5 +58,43 @@ export const registerNewEmployee = async (req, res) => {
   }
 };
 
+//Update password
+export const updatePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmNewPassword } = req.body;
+    const userId = req.user._id
+    const user = await user.findOne({userId});
+    // const userId = req.params.id
+    // const user = await User.findOne({_id: userId});
 
-//Update 
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(300).json({
+        message:
+          "Incorrect current password, please enter the correct current password.",
+      });
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      return res
+        .status(300)
+        .json({
+          message: "New password don not match, please make similar.",
+        });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({message: "Password successfully update."})
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Failed to update password.", error });
+  }
+};
