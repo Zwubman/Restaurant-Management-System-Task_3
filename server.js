@@ -6,11 +6,13 @@ import  "./DbConfigs/dbConfig.js"
 import Inventory from "./Models/inventoryModel.js";
 import Menu from "./Models/menuModel.js";
 import Order from "./Models/orderModel.js";
-import Reserve from "./Models/reservModel.js";
+import Reserve from "./Models/reserveModel.js";
 import User from "./Models/userModel.js";
+import Restaurant from "./Models/restaurantModel.js"
 import authRoute from "./Routes/authRoute.js";
 import userRoute from "./Routes/userRoute.js";
 import menuRoute from './Routes/menuRoute.js'
+import restaurantRoute from "./Routes/restaurantRoute.js"
 
 dotenv.config();
 const app = express();
@@ -19,6 +21,7 @@ app.use(cors());
 app.use("/auth", authRoute);
 app.use("/users", userRoute);
 app.use("/menu", menuRoute);
+app.use("/restaurant", restaurantRoute);
 
 const port = process.env.PORT;
 app.listen(port, ()=> {

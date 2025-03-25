@@ -33,6 +33,10 @@ const restaurantSchema = mongoose.Schema({
     type: String,
     required: true,
   },
+  currency: {
+    type: String,
+    enum: ["ETB", "USD", "CAD", "MXN", "CNY", "JPY"],
+  },
 });
 
 // Use the helper function to set currency before saving

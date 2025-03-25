@@ -8,7 +8,9 @@ const countryCurrencyMap = {
 };
 
 const setCurrency = function (next) {
-  this.currency = countryCurrencyMap[this.country]; // Automatically set currency
+  if (this.restaurantCountry) {
+    this.currency = countryCurrencyMap[this.restaurantCountry]; 
+  }
   next();
 };
 
