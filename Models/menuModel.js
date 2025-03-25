@@ -1,29 +1,30 @@
 import mongoose from "mongoose";
+import formatPriceVirtual from "../Helpers/formatHelper.js";
 
 const menuSchema = mongoose.Schema({
   menuItemName: {
     type: String,
     required: true,
   },
-  catagory: {
+  category: {
     type: String,
     required: true,
   },
   price: {
     type: Number,
-    required: true,
+    required: true
   },
   isAvailable: {
     type: Boolean,
     default: true,
   },
-  ingredient: [
+  ingredients: [
     {
       ingredientName: {
         type: String,
         required: true,
       },
-      amountUsedPerItems: {
+      amountUsedPerItem: {
         type: Number,
         required: true,
       },
@@ -37,8 +38,17 @@ const menuSchema = mongoose.Schema({
   ingredientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Inventory"
+  },
+  restaurantId: {  
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true
   }
 });
+
+
+// Apply the virtual field logic from the helper
+formatPriceVirtual(menuSchema);
 
 const Menu = mongoose.model("Menu", menuSchema);
 export default Menu;

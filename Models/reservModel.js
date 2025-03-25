@@ -44,6 +44,11 @@ const reserveSchema = mongoose.Schema(
         ref: "User",
       },
     ],
+    restaurantId: {  
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Restaurant",
+      required: true
+    }
   },
   { timestamps: true }
 );

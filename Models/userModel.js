@@ -1,4 +1,5 @@
 import mongoose, { mongo } from "mongoose";
+import { formatSalaryVirtual } from "../Helpers/formatHelper.js";
 
 const userSchema = mongoose.Schema({
   firstName: {
@@ -43,10 +44,6 @@ const userSchema = mongoose.Schema({
     type: String,
     allowNull: true,
   },
-  salaryCurrency: {
-    type: String,
-    enum: ["ETB", "USD", "CAD", "MXN", "CNY", "JPY"],
-  },
   myOrders: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -62,8 +59,18 @@ const userSchema = mongoose.Schema({
   menuId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Menu"
+  },
+
+  restaurantId: {  
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true
   }
 });
+
+// Apply the virtual field logic from the helper
+formatPriceVirtual(userSchema);
+
 
 const User = mongoose.model("User", userSchema);
 export default User;

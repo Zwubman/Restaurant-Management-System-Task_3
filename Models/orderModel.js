@@ -61,6 +61,11 @@ const orderSchema = mongoose.Schema({
     default: Date.now,
     required: true,
   },
+  restaurantId: {  
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Restaurant",
+    required: true
+  },
 });
 
 const Order = mongoose.model("Order", orderSchema);
