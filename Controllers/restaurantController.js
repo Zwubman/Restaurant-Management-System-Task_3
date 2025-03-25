@@ -24,20 +24,73 @@ export const registerRestaurant = async (req, res) => {
         .json({ message: "Restaurant already registered." });
     }
 
+    const hashedPassword = await bcrypt.hash(restaurantPassword, 10);
+
     const restaurant = await new Restaurant({
-        restaurantName,
-        restaurantEmail,
-        restaurantPassword,
-        restaurantPhone,
-        restaurantCountry,
-        restaurantAddress
+      restaurantName,
+      restaurantEmail,
+      restaurantPhone,
+      restaurantCountry,
+      restaurantAddress,
+      restaurantPassword: hashedPassword,
     });
 
     await restaurant.save();
 
-    res.status(200).json({message: "Restaurant register successfully.", restaurant});
+    res
+      .status(200)
+      .json({ message: "Restaurant register successfully.", restaurant });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Failed to register restaurant.", error });
   }
+};
+
+//Restaurant log in
+export const restaurantLogIn = async (req, res) => {
+  try {
+    const { restaurantEmail, restaurantPassword } = req.body;
+
+    const restaurant = await Restaurant.findOne({ restaurantEmail });
+
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found." });
+    }
+
+    const isMatch = await bcrypt.compare(
+      restaurantEmail,
+      restaurant.restaurantPassword
+    );
+
+    if (!isMatch) {
+      return res.status(400).json({
+        message: "Incorrect password, please enter the correct password.",
+      });
+    }
+
+    const accessToken = jwt.sign(
+      {
+        id: restaurant._id,
+        email: restaurant.email,
+      },
+      process.env.ACCESS_TOKEN_KEY,
+      { expiresIn: "30d" }
+    );
+
+    const refreshToken = jwt.sign(
+      {
+        id: restaurant._id,
+        email: restaurant.email,
+      },
+      process.env.REFRESH_TOKEN_KEY,
+      { expiresIn: "60d" }
+    );
+
+    res.cookie("accessToken", accessToken);
+    res.cookie("refreshToken", refreshToken);
+
+    res
+      .status(200)
+      .json({ message: "Login successfully.", accessToken, refreshToken });
+  } catch (error) {}
 };

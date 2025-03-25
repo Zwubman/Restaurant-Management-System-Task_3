@@ -69,7 +69,7 @@ const userSchema = mongoose.Schema({
 });
 
 // Apply the virtual field logic from the helper
-formatPriceVirtual(userSchema);
+formatSalaryVirtual(userSchema);
 
 
 const User = mongoose.model("User", userSchema);

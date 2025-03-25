@@ -11,7 +11,7 @@ import User from "./Models/userModel.js";
 import Restaurant from "./Models/restaurantModel.js"
 import authRoute from "./Routes/authRoute.js";
 import userRoute from "./Routes/userRoute.js";
-import menuRoute from './Routes/menuRoute.js'
+import menuRoute from "./Routes/menuRoute.js"
 import restaurantRoute from "./Routes/restaurantRoute.js"
 
 dotenv.config();
