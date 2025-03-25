@@ -10,6 +10,11 @@ export const signUp = async (req, res) => {
     const { firstName, middleName, lastName, email, phone, password } =
       req.body;
 
+    if (!password) {
+      return res
+        .status(300)
+        .json({ message: "password is required, please enter your password." });
+    }
     const isExist = await User.findOne({ email });
     if (isExist) {
       return res
@@ -33,7 +38,7 @@ export const signUp = async (req, res) => {
     res.status(200).json({ message: "User sign up successfully.", user });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Fail to sign up." });
+    res.status(500).json({ message: "Fail to sign up.", error });
   }
 };
 
@@ -86,6 +91,6 @@ export const signIn = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    res.status(200).json({ message: "Fail to sign in" });
+    res.status(200).json({ message: "Fail to sign in", error });
   }
 };

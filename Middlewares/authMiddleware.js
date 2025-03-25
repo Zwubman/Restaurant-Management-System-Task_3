@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import cookie from "cookie-parser";
-import jwt, { verify } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 
 export const verifyToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];

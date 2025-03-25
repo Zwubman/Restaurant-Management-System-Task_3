@@ -46,7 +46,6 @@ const userSchema = mongoose.Schema({
   salaryCurrency: {
     type: String,
     enum: ["ETB", "USD", "CAD", "MXN", "CNY", "JPY"],
-    required: true
   },
   myOrders: [
     {
