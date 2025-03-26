@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Inventory from "../Models/inventoryModel.js";
 import Restaurant from "../Models/restaurantModel.js";
 
-//Create inventory
+//Create Ingredient
 export const addInventory = async (req, res) => {
   try {
     const { ingredientName, ingredientCategory, availableQuantity, unit } =
@@ -43,7 +43,27 @@ export const addInventory = async (req, res) => {
   }
 };
 
-//Update created inventory
+//Get all Ingredient created early
+export const getAllIngredient = async (req, res) => {
+  try {
+    const ingredients = await Inventory.find();
+
+    if (!ingredients) {
+      return res.status(404).json({
+        message: "There is not registered ingredient in inventory model.",
+      });
+    }
+
+    res.status(200).json({ message: "All ingredients:", ingredients });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Fail to fetch all created ingredient.", error });
+  }
+};
+
+//Update created ingredient
 export const updateInventoryById = async (req, res) => {
   try {
     const { ingredientName, ingredientCategory, availableQuantity, unit } =
