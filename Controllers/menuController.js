@@ -48,8 +48,6 @@ export const updateMenuItem = async (req, res) => {
   try {
     const { menuItemName, category, price, isAvailable } = req.body;
     const menuId = req.params.id;
-    
-
 
     const item = await Menu.findOneAndUpdate(
       { _id: menuId },
@@ -59,15 +57,13 @@ export const updateMenuItem = async (req, res) => {
           category,
           price,
           isAvailable,
-        }
+        },
       },
       { new: true }
     );
 
     if (!item) {
-      return res
-        .status(404)
-        .json({ message: "Fail to update Item." });
+      return res.status(404).json({ message: "Fail to update Item." });
     }
 
     res.status(200).json({ message: "Item updated successfully.", item });
@@ -77,4 +73,57 @@ export const updateMenuItem = async (req, res) => {
   }
 };
 
+export const addIngredientsToItem = async (req, res) => {
+  try {
+    const { ingredients } = req.body;
+    const itemId = req.params.id;
+    const item = await Menu.findOne({ _id: itemId });
 
+    if (!item) {
+      return res.status(404).json({ message: "Item not found." });
+    }
+
+    // Array to collect new ingredients to be added
+    const newIngredients = [];
+
+    // Loop through the ingredients array to process each ingredient
+    for (const ingredient of ingredients) {
+      const { ingredientId, amountUsedPerItem } = ingredient;
+
+      // Check if the ingredient already exists in the item's ingredients array
+      const isExist = item.ingredients.some((ingMenu) => {
+        return ingMenu.ingredientId.toString() === ingredientId.toString();
+      });
+
+      if (isExist) {
+        continue;
+      }
+
+      // If ingredient is not present, add it to the newIngredients array
+      newIngredients.push({
+        ingredientId,
+        amountUsedPerItem,
+      });
+    }
+
+    // If there are new ingredients to add, update the item
+    if (newIngredients.length > 0) {
+      item.ingredients.push(...newIngredients);
+      await item.save();
+
+      return res.status(200).json({
+        message: "New ingredient(s) added successfully to the menu item.",
+        item,
+      });
+    } else {
+      return res.status(400).json({
+        message: "No new ingredients to add. All ingredients already exist.",
+      });
+    }
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Failed to add ingredient(s) to the menu item." });
+  }
+};
