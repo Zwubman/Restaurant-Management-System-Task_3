@@ -5,7 +5,7 @@ import { createReservationTable } from "../Controllers/reserveController.js";
 
 const router = express.Router();
 
-router.post("/create-reserve", createReservationTable);
+router.post("/create-reserve/:id", createReservationTable);
 
 
 export default router;
