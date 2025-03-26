@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
 import express from "express";
-import { addMenuItem } from "../Controllers/menuController.js";
+import { addMenuItem, updateMenuItem } from "../Controllers/menuController.js";
 
 const router = express.Router();
 
-router.post("/add-item", addMenuItem);
+router.post("/add-item/:id", addMenuItem);
+router.put("/update-item", updateMenuItem);
 
 
 export default router;

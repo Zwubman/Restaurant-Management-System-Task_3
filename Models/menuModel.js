@@ -20,25 +20,18 @@ const menuSchema = mongoose.Schema({
   },
   ingredients: [
     {
-      ingredientName: {
-        type: String,
+      ingredientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Inventory",
         required: true,
       },
       amountUsedPerItem: {
         type: Number,
         required: true,
       },
-      unit: {
-        type: String,
-        enum: ["g", "ml", "pieces"],
-        required: true,
-      },
+      
     },
   ],
-  ingredientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Inventory",
-  },
   restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
