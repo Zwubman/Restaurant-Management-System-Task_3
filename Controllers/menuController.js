@@ -127,3 +127,59 @@ export const addIngredientsToItem = async (req, res) => {
       .json({ message: "Failed to add ingredient(s) to the menu item." });
   }
 };
+
+//Remove existing ingredient of the menu item if it is not neccessary
+export const removeIngredeintFromItem = async (req, res) => {
+  try {
+    const { ingredientId } = req.body;
+    const itemId = req.params.id;
+    const item = await Menu.findOne({ _id: itemId });
+    if (!item) {
+      return res.status(404).json({ message: "Menu item is not found." });
+    }
+
+    const isExist = await item.ingredients.some((ingMenu) => {
+      return ingMenu.ingredientId.toString() === ingredientId.toString();
+    });
+
+    if (!isExist) {
+      return res.status(404).json({
+        message: `Ingredient is not found in ${item.menuItemName} item`,
+      });
+    }
+
+    item.ingredients = await item.ingredients.filter((ingMenu) => {
+      return ingMenu.ingredientId.toString() !== ingredientId.toString();
+    });
+
+    await item.save();
+
+    res.status(200).json({ message: "Ingredeint removed successfully.", item });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to remove ingredient." });
+  }
+};
+
+//Delete menu item from menu
+export const deleteMenuItemById = async(req, res) => {
+  try{
+    const itemId = req.params.id;
+
+    const item = await Menu.findOne({_id: itemId, isAvailable: true});
+
+    if(!item){
+      return res.status(404).json({message: "Menu item not found."});
+    }
+
+    item.isAvailable = false;
+
+    await item.save();
+
+    res.status(200).json({message: "Menu item deleted successfully.", item});
+
+  }catch(error){
+    console.log(error);
+    res.status(500).json({message})
+  }
+}
