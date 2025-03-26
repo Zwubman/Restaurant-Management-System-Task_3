@@ -46,7 +46,7 @@ export const addMenuItem = async (req, res) => {
 //Update items in menu
 export const updateMenuItem = async (req, res) => {
   try {
-    const { menuItemName, category, price, isAvailable } = req.body;
+    const { menuItemName, category, price } = req.body;
     const menuId = req.params.id;
 
     const item = await Menu.findOneAndUpdate(
@@ -56,7 +56,6 @@ export const updateMenuItem = async (req, res) => {
           menuItemName,
           category,
           price,
-          isAvailable,
         },
       },
       { new: true }
@@ -73,6 +72,7 @@ export const updateMenuItem = async (req, res) => {
   }
 };
 
+//Add ingredients into the menu item
 export const addIngredientsToItem = async (req, res) => {
   try {
     const { ingredients } = req.body;
@@ -162,24 +162,67 @@ export const removeIngredeintFromItem = async (req, res) => {
 };
 
 //Delete menu item from menu
-export const deleteMenuItemById = async(req, res) => {
-  try{
+export const deleteMenuItemById = async (req, res) => {
+  try {
     const itemId = req.params.id;
 
-    const item = await Menu.findOne({_id: itemId, isAvailable: true});
+    const item = await Menu.findOne({ _id: itemId, isAvailable: true });
 
-    if(!item){
-      return res.status(404).json({message: "Menu item not found."});
+    if (!item) {
+      return res.status(404).json({ message: "Menu item not found." });
     }
 
     item.isAvailable = false;
 
     await item.save();
 
-    res.status(200).json({message: "Menu item deleted successfully.", item});
-
-  }catch(error){
+    res.status(200).json({ message: "Menu item deleted successfully.", item });
+  } catch (error) {
     console.log(error);
-    res.status(500).json({message})
+    res.status(500).json({ message });
   }
-}
+};
+
+//Make available(undelete) the deleted menu item
+export const makeAvailableItem = async (req, res) => {
+  try {
+    const { isAvailable } = req.body;
+
+    const itemId = req.params.id;
+    const item = await Menu.findOne({ _id: itemId });
+
+    if (!item) {
+      return res.status(404).json({ message: "Item not found." });
+    }
+
+    item.isAvailable = true;
+
+    await item.save();
+
+    res.status(200).json({ message: "Item is available now.", item });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Fail to update Availablity to true.", error });
+  }
+};
+
+//Get all undeleted menu Item
+export const getAllMenuItem = async (req, res) => {
+  try {
+    const items = await Menu.find();
+    if (!items) {
+      return res
+        .status(404)
+        .json({ message: "There is not menu item in the menu." });
+    }
+
+    res.status(200).json({ message: "All menu item in the menu:", items });
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Fail to fetch all available items.", error });
+  }
+};
