@@ -63,6 +63,26 @@ export const getAllIngredient = async (req, res) => {
   }
 };
 
+//Get registered ingredient by id
+export const getIngredientById = async (req, res) => {
+  try {
+    const ingredientId = req.params.id;
+
+    const ingredient = await Inventory.findOne({ _id: ingredientId });
+
+    if (!ingredient) {
+      return res.status(404).json({ message: "Ingredient not found." });
+    }
+
+    res.status(200).json(ingredient);
+  } catch (error) {
+    console.log(error);
+    res
+      .status(500)
+      .json({ message: "Fail to access ingredient by id.", error });
+  }
+};
+
 //Update created ingredient
 export const updateInventoryById = async (req, res) => {
   try {
@@ -96,5 +116,19 @@ export const updateInventoryById = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to update inventory.", error });
+  }
+};
+
+//Delete created Ingredient
+export const deleteIngredientById = async (req, res) => {
+  try {
+    const ingredientId = req.params.id;
+
+    const ingredient = await Inventory.findOneAndDelete({ _id: ingredientId });
+
+    res.status(200).json({ message: "Ingredient deleted successfully." });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to delete ingredient by id." });
   }
 };
