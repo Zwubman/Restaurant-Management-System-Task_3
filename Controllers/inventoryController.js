@@ -9,10 +9,19 @@ export const addInventory = async (req, res) => {
       req.body;
 
     const restaurantId = req.params.id;
-    const restaurant = await Restaurant.findOnee({ _id: restaurantId });
+    const restaurant = await Restaurant.findOne({ _id: restaurantId });
 
     if (!restaurantId) {
       return res.status(404).json({ message: "Restaurant not foun." });
+    }
+
+    const existingInventory = await Inventory.findOne({
+      ingredientName,
+      restaurantId,
+    });
+
+    if (existingInventory) {
+      return res.status(303).json({ message: "Inventory already added." });
     }
 
     const inventory = await new Inventory({
@@ -20,6 +29,7 @@ export const addInventory = async (req, res) => {
       ingredientCategory,
       availableQuantity,
       unit,
+      restaurantId: restaurantId,
     });
 
     await inventory.save();

@@ -29,7 +29,6 @@ const menuSchema = mongoose.Schema({
         type: Number,
         required: true,
       },
-      
     },
   ],
   restaurantId: {

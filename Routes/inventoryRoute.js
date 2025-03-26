@@ -4,6 +4,6 @@ import { addInventory } from "../Controllers/inventoryController.js";
 
 const router = express.Router();
 
-router.post("/add-ingredient", addInventory);
+router.post("/add-ingredient/:id", addInventory);
 
 export default router;

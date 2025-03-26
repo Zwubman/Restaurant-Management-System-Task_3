@@ -1,17 +1,18 @@
-import mongoose from "mongoose";
+import mongoose, { modelNames } from "mongoose";
 import Menu from "../Models/menuModel.js";
 import Restaurant from "../Models/restaurantModel.js";
 
 //Add a items into menu
 export const addMenuItem = async (req, res) => {
   try {
-    const { menuItemName, catagory, price, isAvailable, ingredient } = req.body;
+    const { menuItemName, category, price, isAvailable, ingredients } =
+      req.body;
 
     const restaurantId = req.params.id;
-    const restaurant = await Restaurant.findOne({_id: restaurantId});
+    const restaurant = await Restaurant.findOne({ _id: restaurantId });
 
-    if(!restaurant){
-      return res.status(404).json({message: "Restaurant not found."});
+    if (!restaurant) {
+      return res.status(404).json({ message: "Restaurant not found." });
     }
 
     const isAdded = await Menu.findOne({ menuItemName });
@@ -24,11 +25,11 @@ export const addMenuItem = async (req, res) => {
 
     const item = await new Menu({
       menuItemName,
-      catagory,
+      category,
       price,
       isAvailable,
-      ingredient,
-      restaurantId: restaurantId
+      ingredients,
+      restaurantId: restaurantId,
     });
 
     await item.save();
@@ -45,22 +46,35 @@ export const addMenuItem = async (req, res) => {
 //Update items in menu
 export const updateMenuItem = async (req, res) => {
   try {
-    const { menuItemName, catagory, price, isAvailable, ingredient } = req.body;
+    const { menuItemName, category, price, isAvailable } = req.body;
     const menuId = req.params.id;
+    
+
 
     const item = await Menu.findOneAndUpdate(
-      {_id: menuId},
-      { $set: req.body},
-      {new: true}
+      { _id: menuId },
+      {
+        $set: {
+          menuItemName,
+          category,
+          price,
+          isAvailable,
+        }
+      },
+      { new: true }
     );
 
-    if(!item){
-      return res.status(404).json({message: "Item not found and not update."});
+    if (!item) {
+      return res
+        .status(404)
+        .json({ message: "Fail to update Item." });
     }
 
-
+    res.status(200).json({ message: "Item updated successfully.", item });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to update item in menu." });
   }
 };
+
+
