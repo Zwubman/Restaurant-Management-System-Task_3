@@ -2,6 +2,7 @@ import mongoose  from "mongoose";
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+import cookie from "cookie-parser";
 import  "./DbConfigs/dbConfig.js"
 import Inventory from "./Models/inventoryModel.js";
 import Menu from "./Models/menuModel.js";
@@ -18,6 +19,7 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors());
+app.use(cookie());
 app.use("/auth", authRoute);
 app.use("/users", userRoute);
 app.use("/menu", menuRoute);

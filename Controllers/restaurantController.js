@@ -86,8 +86,8 @@ export const restaurantLogIn = async (req, res) => {
       { expiresIn: "60d" }
     );
 
-    res.cookie("accessToken", accessToken);
-    res.cookie("refreshToken", refreshToken);
+    res.cookie("restaurantAccessToken", accessToken);
+    res.cookie("restaurantRefreshToken", refreshToken);
 
     res
       .status(200)

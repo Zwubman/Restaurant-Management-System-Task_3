@@ -44,6 +44,10 @@ const userSchema = mongoose.Schema({
     type: String,
     allowNull: true,
   },
+  salaryCurrency: {
+    type: String,
+    enum: ["ETB", "USD", "CAD", "MXN", "CNY", "JPY"],
+  },
   myOrders: [
     {
       type: mongoose.Schema.Types.ObjectId,
@@ -64,7 +68,6 @@ const userSchema = mongoose.Schema({
   restaurantId: {  
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
-    required: true
   }
 });
 

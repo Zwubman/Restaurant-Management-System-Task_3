@@ -10,6 +10,8 @@ export const signUp = async (req, res) => {
     const { firstName, middleName, lastName, email, phone, password } =
       req.body;
 
+    const restaurantId = req.params.id;
+
     if (!password) {
       return res
         .status(300)
@@ -31,6 +33,7 @@ export const signUp = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
+      restaurantId: restaurantId,
     });
 
     await user.save();
@@ -61,7 +64,7 @@ export const signIn = async (req, res) => {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
-    const accessToken = jwt.sign(
+    const userAccessToken = jwt.sign(
       {
         id: user._id,
         email: user.email,
@@ -71,7 +74,7 @@ export const signIn = async (req, res) => {
       { expiresIn: "1d" }
     );
 
-    const refreshToken = jwt.sign(
+    const userRefreshToken = jwt.sign(
       {
         id: user._id,
         email: user.email,
@@ -81,13 +84,13 @@ export const signIn = async (req, res) => {
       { expiresIn: "30d" }
     );
 
-    res.cookie("accessToken", accessToken);
-    res.cookie("refreshToken", refreshToken);
+    res.cookie("userAccessToken", userAccessToken);
+    res.cookie("userRefreshToken", userRefreshToken);
 
     res.status(200).json({
       message: "Log in successfully.",
-      accessToken,
-      refreshToken,
+      userAccessToken,
+      userRefreshToken,
     });
   } catch (error) {
     console.log(error);
