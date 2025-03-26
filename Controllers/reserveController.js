@@ -18,7 +18,7 @@ export const createReservationTable = async (req, res) => {
         });
     }
 
-    const isCreated = await Reserve.findOne(tableNumber);
+    const isCreated = await Reserve.findOne({tableNumber: tableNumber});
 
     if (isCreated) {
       return res

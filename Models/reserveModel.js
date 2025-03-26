@@ -14,29 +14,25 @@ const reserveSchema = mongoose.Schema(
     },
     reservationDateTime: {
       type: Date,
-      required: true,
     },
     reservationEndTime: {
       type: Date,
-      required: true,
     },
     guestCount: {
       type: Number,
-      required: true,
       min: 1,
     },
     customerName: {
       type: String,
-      required: true,
     },
     customerPhone: {
       type: String,
-      required: true,
     },
     paymentStatus: {
       type: String,
       enum: ["Paid", "Pending"],
       default: "Pending",
+      required: true
     },
     reservedBy: [
       {
@@ -47,7 +43,6 @@ const reserveSchema = mongoose.Schema(
     restaurantId: {  
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
-      required: true
     }
   },
   { timestamps: true }
