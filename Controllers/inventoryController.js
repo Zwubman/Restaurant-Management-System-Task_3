@@ -42,3 +42,39 @@ export const addInventory = async (req, res) => {
     res.status(500).json({ message: "Fail to add inventory.", error });
   }
 };
+
+//Update created inventory
+export const updateInventoryById = async (req, res) => {
+  try {
+    const { ingredientName, ingredientCategory, availableQuantity, unit } =
+      req.body;
+
+    const inventoryId = req.params.id;
+
+    const inventory = await Inventory.findOneAndUpdate(
+      { _id: inventoryId },
+      {
+        $set: {
+          ingredientName,
+          ingredientCategory,
+          availableQuantity,
+          unit,
+        },
+      },
+      { new: true }
+    );
+
+    if (!inventory) {
+      return res
+        .status(404)
+        .json({ message: "Inventory not found and Fail to update." });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Inventory updated successfull.", inventory });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to update inventory.", error });
+  }
+};
