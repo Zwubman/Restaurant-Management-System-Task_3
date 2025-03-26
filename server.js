@@ -15,6 +15,8 @@ import userRoute from "./Routes/userRoute.js";
 import menuRoute from "./Routes/menuRoute.js";
 import restaurantRoute from "./Routes/restaurantRoute.js";
 import inventoryRoute from "./Routes/inventoryRoute.js";
+import reserveRoute from "./Routes/reserveRoute.js"
+
 
 dotenv.config();
 const app = express();
@@ -26,6 +28,7 @@ app.use("/users", userRoute);
 app.use("/menu", menuRoute);
 app.use("/restaurant", restaurantRoute);
 app.use("/inventory", inventoryRoute);
+app.use("/reserve", reserveRoute);
 
 const port = process.env.PORT;
 app.listen(port, () => {
