@@ -5,11 +5,6 @@ const inventorySchema = mongoose.Schema({
         type: String,
         required: true
     },
-    ingredientCategory: {  
-        type: String,
-        enum: ["Vegetables", "Dairy", "Meat", "Grains", "Spices"],  
-        required: true
-    },
     availableQuantity: {
         type: Number,
         required: true
@@ -19,6 +14,11 @@ const inventorySchema = mongoose.Schema({
         enum: ["g", "ml", "pieces"],
         required: true
     },
+    restaurantId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Restaurant",
+        required: true
+    }
 
 });
 

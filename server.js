@@ -14,6 +14,7 @@ import authRoute from "./Routes/authRoute.js";
 import userRoute from "./Routes/userRoute.js";
 import menuRoute from "./Routes/menuRoute.js"
 import restaurantRoute from "./Routes/restaurantRoute.js"
+import inventoryRoute from "./Routes/inventoryRoute.js";
 
 dotenv.config();
 const app = express();
@@ -24,6 +25,7 @@ app.use("/auth", authRoute);
 app.use("/users", userRoute);
 app.use("/menu", menuRoute);
 app.use("/restaurant", restaurantRoute);
+app.use("/inventory", inventoryRoute);
 
 const port = process.env.PORT;
 app.listen(port, ()=> {
