@@ -31,16 +31,30 @@ const reserveSchema = mongoose.Schema(
     prepaymentAmount: {
       type: Number,
       required: true,
-      default: 50,
+      default: 5,
     },
-    paymentStatus: {
-      type: String,
-      enum: ["Paid", "Pending"],
+    payment: {
+      method: {
+        type: String,
+        enum: ["Telebirr", "CBE"],
+      },
+      paymentStatus: {
+        type: String,
+        enum: ["Pending", "Paid", "Failed"],
+      },
+      amountPaid: {
+        type: Number,
+      },
+      transactionId: {
+        type: String,
+      },
     },
     reservedBy: [
       {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
       },
     ],
     restaurantId: {
@@ -50,9 +64,6 @@ const reserveSchema = mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// Apply the status transition middleware
-reserveSchema.pre("save", enforceReservationStatusTransitions);
 
 reserveSchema.index(
   { tableNumber: 1, reservationDateTime: 1 },

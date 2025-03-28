@@ -65,7 +65,7 @@ export const deleteReserveTable = async (req, res) => {
 };
 
 // User can book reservation
-export const bookingTable = async (req, res) => {
+export const reservation = async (req, res) => {
   try {
     const {
       customerName,
@@ -75,9 +75,51 @@ export const bookingTable = async (req, res) => {
       reservationEndDateTime,
     } = req.body;
 
-    
+    const userId = req.user._id;
+    const newStatus = "Pending";
+
+    const reservation = await Reserve.findOne({ tableNumber: tableNumber });
+
+    if (!reservation) {
+      return res.status(404).json({ message: "Reserve not found." });
+    }
+
+    if (reservation.reservationStatus !== "Available") {
+      return res
+        .status(303)
+        .json({
+          message:
+            "Reservation is not available, please reserve an other available reservation.",
+        });
+    }
+
+    reservation.customerName = customerName;
+    reservation.customerPhoe = customerPhone;
+    reservation.reservationStartDateTime = reservationStartDateTime;
+    reservation.reservationEndDateTime = reservationEndDateTime;
+    reservation.reservationStatus = newStatus;
+
+    reservation.reservedBy.push({
+      userId,
+    });
+
+    await reservation.save();
+
+    res.status(200).json({
+      message: `Reserve table number ${tableNumber} successfully booked.`,
+      reservation,
+    });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to booking these table.", error });
+  }
+};
+
+export const payForReservation = async (req, res) => {
+  try{
+
+  }catch(error){
+    console.log(error);
+    res.status(500).json({message: "Failed to initialize the payment.", error});
   }
 };
