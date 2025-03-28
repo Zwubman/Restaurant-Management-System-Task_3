@@ -8,14 +8,14 @@ const reserveSchema = mongoose.Schema(
     },
     reservationStatus: {
       type: String,
-      enum: ["Confirmed", "Canceled", "Completed", "Available"],
+      enum: ["Available", "Pending", "Confirmed", "Canceled", "Completed"],
       default: "Available",
       required: true,
     },
-    reservationDateTime: {
+    reservationStartDateTime: {
       type: Date,
     },
-    reservationEndTime: {
+    reservationEndDateTime: {
       type: Date,
     },
     guestCount: {
@@ -28,11 +28,14 @@ const reserveSchema = mongoose.Schema(
     customerPhone: {
       type: String,
     },
+    prepaymentAmount: {
+      type: Number,
+      required: true,
+      default: 50,
+    },
     paymentStatus: {
       type: String,
       enum: ["Paid", "Pending"],
-      default: "Pending",
-      required: true
     },
     reservedBy: [
       {
@@ -40,13 +43,16 @@ const reserveSchema = mongoose.Schema(
         ref: "User",
       },
     ],
-    restaurantId: {  
+    restaurantId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Restaurant",
-    }
+    },
   },
   { timestamps: true }
 );
+
+// Apply the status transition middleware
+reserveSchema.pre("save", enforceReservationStatusTransitions);
 
 reserveSchema.index(
   { tableNumber: 1, reservationDateTime: 1 },

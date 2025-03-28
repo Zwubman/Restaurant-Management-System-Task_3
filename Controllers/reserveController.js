@@ -64,5 +64,20 @@ export const deleteReserveTable = async (req, res) => {
   }
 };
 
+// User can book reservation
+export const bookingTable = async (req, res) => {
+  try {
+    const {
+      customerName,
+      customerPhone,
+      tableNumber,
+      reservationStartDateTime,
+      reservationEndDateTime,
+    } = req.body;
 
-
+    
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to booking these table.", error });
+  }
+};
