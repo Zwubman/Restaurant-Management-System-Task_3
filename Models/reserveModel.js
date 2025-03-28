@@ -12,26 +12,14 @@ const reserveSchema = mongoose.Schema(
       default: "Available",
       required: true,
     },
-    reservationStartDateTime: {
-      type: Date,
-    },
-    reservationEndDateTime: {
-      type: Date,
-    },
     guestCount: {
       type: Number,
       min: 1,
     },
-    customerName: {
-      type: String,
-    },
-    customerPhone: {
-      type: String,
-    },
     prepaymentAmount: {
       type: Number,
       required: true,
-      default: 5,
+      default: 500,
     },
     payment: {
       method: {
@@ -48,12 +36,28 @@ const reserveSchema = mongoose.Schema(
       transactionId: {
         type: String,
       },
+      tx_ref: { 
+        type: String, 
+        unique: true 
+      },
     },
     reservedBy: [
       {
         userId: {
           type: mongoose.Schema.Types.ObjectId,
           ref: "User",
+        },
+        customerName: {
+          type: String,
+        },
+        customerPhone: {
+          type: String,
+        },
+        reservationStartDateTime: {
+          type: Date,
+        },
+        reservationEndDateTime: {
+          type: Date,
         },
       },
     ],

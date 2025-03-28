@@ -1,4 +1,7 @@
 import nodemailer from "nodemailer";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 export const sendReservationEmail = async (
   userEmail,
@@ -31,19 +34,19 @@ export const sendReservationEmail = async (
       <p>Your table number is <strong>${tableNumber}</strong>.</p>
       <p><strong>Reservation Start Time:</strong> ${reservationStartDateTime}</p>
       <p><strong>Reservation End Time:</strong> ${reservationEndDateTime}</p>
-      <p><strong>Reservation Amount:</strong> $${reservationAmount}</p>
-      <p>To confirm your reservation, please back and pay for the reservation amount of 
-      <strong>$${reservationAmount}</strong> at the restaurant before your reservation time.</p>
+      <p><strong>Reservation Amount:</strong> ${reservationAmount}</p>
+      <p>To confirm your reservation, <strong style="color: blue;">please back and pay for the reservation amount of</strong> 
+      <strong>${reservationAmount}</strong> at the restaurant before your reservation time.</p>
       <p>We look forward to serving you at ${restaurantName}!</p>
       <p>Best regards,</p>
-      <p>The ${restaurantName} Team</p>
+      <p>The ${restaurantName} Manager: Wubamlak Girum</p>
     `,
     };
 
     //send email
     await transporter.sendMail(mailOptions);
-    console.log("Email sent successfully to: ", email)
+    console.log("Email sent successfully to: ", userEmail);
   } catch (error) {
-    console.log(error);
+    console.log("Error sending email: ", error);
   }
 };
