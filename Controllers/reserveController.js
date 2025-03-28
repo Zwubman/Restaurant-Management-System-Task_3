@@ -10,15 +10,13 @@ export const createReservationTable = async (req, res) => {
 
     const restaurant = await Restaurant.findOne({ _id: restaurantId });
     if (!restaurant) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Restaurant not found in which the reservation table is created to.",
-        });
+      return res.status(404).json({
+        message:
+          "Restaurant not found in which the reservation table is created to.",
+      });
     }
 
-    const isCreated = await Reserve.findOne({tableNumber: tableNumber});
+    const isCreated = await Reserve.findOne({ tableNumber: tableNumber });
 
     if (isCreated) {
       return res
@@ -43,3 +41,28 @@ export const createReservationTable = async (req, res) => {
       .json({ message: "Fail to create Reservation table.", error });
   }
 };
+
+//Delete reserve table
+export const deleteReserveTable = async (req, res) => {
+  try {
+    const { tableNumber } = req.body;
+
+    const deletedTable = await Reserve.findOneAndDelete({
+      tableNumber: tableNumber,
+    });
+
+    if (!deletedTable) {
+      return res
+        .status(404)
+        .json({ message: "Reserve table not found and not deleted." });
+    }
+
+    res.status(200).json({ message: "Reserve tabel deleted successfully." });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to delete reserve table.", error });
+  }
+};
+
+
+

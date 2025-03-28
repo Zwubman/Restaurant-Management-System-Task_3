@@ -66,6 +66,10 @@ const orderSchema = mongoose.Schema({
     ref: "Restaurant",
     required: true
   },
+  inventoryId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Inventory",
+  }
 });
 
 const Order = mongoose.model("Order", orderSchema);
