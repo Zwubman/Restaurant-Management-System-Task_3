@@ -34,6 +34,8 @@ export const createReservationTable = async (req, res) => {
     res
       .status(200)
       .json({ message: "Table reservation created successfull.", table });
+
+      
   } catch (error) {
     console.log(error);
     res
