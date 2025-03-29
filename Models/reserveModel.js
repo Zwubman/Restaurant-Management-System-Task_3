@@ -1,4 +1,6 @@
 import mongoose, { mongo } from "mongoose";
+import { v4 as uuidv4 } from "uuid";
+
 
 const reserveSchema = mongoose.Schema(
   {
@@ -38,8 +40,11 @@ const reserveSchema = mongoose.Schema(
       },
       tx_ref: { 
         type: String, 
-        unique: true 
-      },
+        unique: true, 
+        default: function () {
+            return `reserve-${uuidv4()}`;
+        }
+    }
     },
     reservedBy: [
       {

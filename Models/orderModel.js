@@ -5,26 +5,21 @@ const orderSchema = mongoose.Schema({
     type: Number,
     required: true,
   },
-  menuItems: [
-    {
-      menuItemId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Menu",
-      },
-      quantity: {
-        type: Number,
-        required: true,
-        min: 1,
-      },
-      price: {
-        type: Number,
-        required: true,
-      },
-    },
-  ],
-  totalAmount: {
+  menuItemId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Menu",
+  },
+  quantity: {
     type: Number,
     required: true,
+    min: 1,
+  },
+  price: {
+    type: Number,
+    required: true,
+  },
+  totalAmount: {
+    type: Number,
   },
   orderStatus: {
     type: String,
@@ -35,7 +30,7 @@ const orderSchema = mongoose.Schema({
   payment: {
     method: {
       type: String,
-      enum: ["Cash", "Credit Card", "Telebirr", "CBE"],
+      enum: ["Telebirr", "CBE"],
       required: true,
     },
     paymentStatus: {
@@ -61,15 +56,15 @@ const orderSchema = mongoose.Schema({
     default: Date.now,
     required: true,
   },
-  restaurantId: {  
+  restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
-    required: true
+    required: true,
   },
   inventoryId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Inventory",
-  }
+  },
 });
 
 const Order = mongoose.model("Order", orderSchema);
