@@ -33,7 +33,7 @@ const reserveSchema = mongoose.Schema(
         enum: ["Pending", "Paid", "Failed"],
       },
       amountPaid: {
-        type: Number,
+        type: String,
       },
       transactionId: {
         type: String,

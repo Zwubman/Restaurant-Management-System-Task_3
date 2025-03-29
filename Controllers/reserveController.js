@@ -209,8 +209,7 @@ export const cancelReservation = async (req, res) => {
   }
 };
 
-
-//Pay for the reservation
+// Pay for the reservation
 export const payForReservation = async (req, res) => {
   try {
     const { tableNumber, paymentMethod } = req.body;
@@ -254,7 +253,7 @@ export const payForReservation = async (req, res) => {
         ...reservation.payment,
         tx_ref,
       };
-      await reservation.save(); // Save tx_ref in DB
+      await reservation.save();
     }
 
     // Fix phone number format (Remove `+`)
@@ -269,10 +268,14 @@ export const payForReservation = async (req, res) => {
       last_name: customer.customerName.split(" ")[1] || "User",
       phone_number: phone_number,
       tx_ref: tx_ref,
-      callback_url: `http://localhost:4444/reserve/callback?tx_ref=${tx_ref}`,
-      return_url: `http://localhost:5173/payment-success?reservationId=${reservation._id}`,
+      callback_url: `http://localhost:4444/reserve/callback?tx_ref=${encodeURIComponent(
+        tx_ref
+      )}`,
+      return_url: `http://localhost:5173/payment-success?reservationId=${encodeURIComponent(
+        reservation._id
+      )}&tx_ref=${encodeURIComponent(tx_ref)}`,
       customization: {
-        title: "Table Payment", // ✅ Fixed (shortened)
+        title: "Table Payment",
         description: `Payment for table ${reservation.tableNumber}`,
         backgroundColor: "#0000FF",
         buttonColor: "blue",
@@ -298,19 +301,12 @@ export const payForReservation = async (req, res) => {
       });
     }
 
-    // Store payment details in reservation
-    reservation.payment = {
-      method: paymentMethod,
-      paymentStatus: "Pending",
-      transactionId: chapaResponse.data.data.tx_ref,
-      amountPaid: reservation.prepaymentAmount,
-      tx_ref: tx_ref,
-    };
-
+    reservation.payment.method = paymentMethod;
     await reservation.save();
 
     res.status(200).json({
       message: "Payment initialized successfully.",
+      tx_ref: tx_ref,
       payment_url: chapaResponse.data.data.checkout_url,
     });
   } catch (error) {
@@ -322,37 +318,91 @@ export const payForReservation = async (req, res) => {
   }
 };
 
-
-//To callback the payment data
+// Handle payment callback
 export const paymentCallback = async (req, res) => {
-  const { tx_ref, status } = req.query;
-  console.log("Callback received: ", { tx_ref, status });
+  const tx_ref = req.query.tx_ref;
+
+  console.log("Raw Callback Query Params:", req.query);
+
+  if (!tx_ref) {
+    return res
+      .status(400)
+      .json({ message: "tx_ref is required in query parameters." });
+  }
 
   try {
+    // Verify the payment status from Chapa
+    const chapaResponse = await axios.get(
+      `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const chapaData = chapaResponse.data;
+
+    if (!chapaData || chapaData.status !== "success") {
+      return res.status(400).json({
+        message: "Failed to verify payment status.",
+        chapaData,
+      });
+    }
+
+    const actualStatus = chapaData.data.status;
+    const transactionReference = chapaData.data.tx_ref;
+    console.log("Verified Payment Status from Chapa:", actualStatus);
+
+    // Find reservation using tx_ref
     const reservation = await Reserve.findOne({
-      "payment.transactionId": tx_ref,
-    });
+      "payment.tx_ref": tx_ref,
+    }).populate("restaurantId");
+
+    const currency = reservation.restaurantId.currency;
+    const amountPaid = `${reservation.prepaymentAmount} ${currency}`;
 
     if (!reservation) {
       return res.status(404).json({ message: "Reservation not found." });
     }
 
-    if (status === "success") {
-      reservation.payment.paymentStatus = "Paid";
+    // Update reservation status based on actual payment status
+    if (actualStatus === "success") {
       reservation.reservationStatus = "Confirmed";
+
+      // Store the updated payment details
+      reservation.payment = {
+        paymentStatus: "Paid",
+        transactionId: transactionReference,
+        amountPaid: amountPaid,
+        tx_ref: tx_ref,
+        paymentDate: new Date(),
+      };
     } else {
-      reservation.payment.paymentStatus = "Failed";
+      // In case the payment failed, update the status
       reservation.reservationStatus = "Pending";
+
+      // Store the payment failure details
+      reservation.payment = {
+        paymentStatus: "Failed",
+        transactionId: chapaResponse.data.data.tx_ref,
+        amountPaid: 0,
+        tx_ref: tx_ref,
+        paymentDate: new Date(),
+      };
     }
 
     await reservation.save();
 
-    // Redirect to frontend payment success/failure page
-    const redirectUrl = `http://localhost:5173/payment-success?reservationId=${reservation._id}&status=${status}`;
-    console.log("Redirecting to:", redirectUrl); // Check if URL is correct
-    res.redirect(redirectUrl);
+    // Redirect user to frontend with actual status
+    const redirectUrl = `http://localhost:5173/payment-success?reservationId=${reservation._id}
+    &tx_ref=${tx_ref}&status=${actualStatus}`;
+    res.status(200).json({
+      message: "Redirecting to the success page",
+      redirectUrl: redirectUrl,
+    });
   } catch (error) {
-    console.error("Error handling payment callback:", error);
-    res.status(500).json({ message: "Server error" });
+    console.error("Error verifying payment with Chapa:", error);
+    res.status(500).json({ message: "Server error verifying payment." });
   }
 };
