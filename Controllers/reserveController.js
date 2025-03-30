@@ -148,7 +148,7 @@ export const bookReservation = async (req, res) => {
 };
 
 //Cancel to booked reservation
-export const cancelReservation = async (req, res) => {
+export const cancelBookedReservation = async (req, res) => {
   try {
     const { tableNumber } = req.body;
 

@@ -3,7 +3,7 @@ import express from "express";
 import {
   createReservationTable,
   bookReservation,
-  cancelReservation,
+  cancelBookedReservation,
   deleteReserveTable,
   payForReservation,
   paymentCallback
@@ -15,7 +15,7 @@ const router = express.Router();
 router.post("/create-reserve/:id", createReservationTable);
 router.delete("/delete-reservation", deleteReserveTable);
 router.post("/reservation", verifyToken, bookReservation);
-router.post("/cancel-reservation", verifyToken, cancelReservation);
+router.post("/cancel-reservation", verifyToken, cancelBookedReservation);
 router.post("/pay", verifyToken,  payForReservation);
 router.get("/callback", paymentCallback);
 
