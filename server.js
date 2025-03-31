@@ -16,6 +16,7 @@ import menuRoute from "./Routes/menuRoute.js";
 import restaurantRoute from "./Routes/restaurantRoute.js";
 import inventoryRoute from "./Routes/inventoryRoute.js";
 import reserveRoute from "./Routes/reserveRoute.js"
+import orderRoute from "./Routes/orderRoute.js";
 
 
 dotenv.config();
@@ -29,6 +30,7 @@ app.use("/menu", menuRoute);
 app.use("/restaurant", restaurantRoute);
 app.use("/inventory", inventoryRoute);
 app.use("/reserve", reserveRoute);
+app.use("/order", orderRoute);
 
 const port = process.env.PORT;
 app.listen(port, () => {

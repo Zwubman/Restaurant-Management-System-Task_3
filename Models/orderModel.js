@@ -1,70 +1,86 @@
 import mongoose from "mongoose";
+import { stringify } from "uuid";
 
 const orderSchema = mongoose.Schema({
-  tableNumber: {
-    type: Number,
-    required: true,
-  },
   menuItemId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Menu",
-  },
-  quantity: {
-    type: Number,
-    required: true,
-    min: 1,
-  },
-  price: {
-    type: Number,
     required: true,
   },
-  totalAmount: {
-    type: Number,
-  },
-  orderStatus: {
-    type: String,
-    enum: ["Pending", "Inprogress", "Completed", "Canceled"],
-    default: "Pending",
-    required: true,
-  },
-  payment: {
-    method: {
-      type: String,
-      enum: ["Telebirr", "CBE"],
-      required: true,
-    },
-    paymentStatus: {
-      type: String,
-      enum: ["Pending", "Paid", "Failed"],
-      default: "Pending",
-      required: true,
-    },
-    amountPaid: {
-      type: Number,
-      default: 0,
-      required: true,
-    },
-    transactionId: {
-      type: String,
-      required: function () {
-        return this.payment.method !== "Cash";
+  orderedBy: [
+    {
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        required: true,
+      },
+      name: {
+        type: String,
+        required: true
+      },
+      phone: {
+        type: String,
+        required: true
+      },
+      tableNumber: {
+        type: Number,
+        required: true,
+      },
+      quantity: {
+        type: Number,
+        required: true,
+        min: 1,
+      },
+      totalPrice: {
+        type: Number,
+        required: true,
+      },
+      orderStatus: {
+        type: String,
+        enum: ["Pending", "Inprogress", "Completed", "Canceled"],
+        default: "Pending",
+        required: true,
+      },
+      orderDateTime: {
+        type: Date,
+        default: Date.now,
+        required: true,
+      },
+      payment: {
+        method: {
+          type: String,
+          enum: ["Telebirr", "CBE"], 
+        },
+        paymentStatus: {
+          type: String,
+          enum: ["Pending", "Paid", "Failed"],
+          default: "Pending",
+        },
+        amountPaid: {
+          type: Number,
+          default: 0,
+          required: true,
+        },
+        transactionId: {
+          type: String,
+        },
       },
     },
-  },
-  orderDateTime: {
-    type: Date,
-    default: Date.now,
-    required: true,
-  },
+  ],
   restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
     required: true,
   },
-  inventoryId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Inventory",
-  },
+  inventory: [
+    {
+      ingredientId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Inventory",
+        required: true,
+      },
+    },
+  ],
 });
 
 const Order = mongoose.model("Order", orderSchema);

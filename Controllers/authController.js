@@ -31,8 +31,8 @@ export const signUp = async (req, res) => {
       middleName,
       lastName,
       email,
-      password: hashedPassword,
       phone,
+      password: hashedPassword,
       restaurantId: restaurantId,
     });
 

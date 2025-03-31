@@ -39,7 +39,8 @@ export const sendReservationEmail = async (
       <strong>${reservationAmount}</strong> at the restaurant before your reservation time.</p>
       <p>We look forward to serving you at ${restaurantName}!</p>
       <p>Best regards,</p>
-      <p>The ${restaurantName} Manager: Wubamlak Girum</p>
+      <p>Team ${restaurantName}!</p>
+      <p>Manager: Wubamlak Girum</p>
     `,
     };
 
