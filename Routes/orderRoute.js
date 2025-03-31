@@ -6,7 +6,8 @@ import {
   payForOrder,
   paymentCallback,
   getAllOrderPerItem,
-  getAllOrder
+  getAllOrder,
+  updateOrderStatus
 } from "../Controllers/orderController.js";
 import { verifyToken } from "../Middlewares/authMiddleware.js";
 
@@ -18,5 +19,6 @@ router.post("/order-payment", verifyToken,  payForOrder);
 router.get("/callback", paymentCallback);
 router.get("/orders-per-item", verifyToken, getAllOrderPerItem);
 router.get("/all-orders", verifyToken,  getAllOrder);
+router.put("/update-status/:id", verifyToken, updateOrderStatus);
 
 export default router;

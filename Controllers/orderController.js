@@ -177,6 +177,83 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
+// Update order information before payment
+export const updateOrderInfo = async (req, res) => {
+  try {
+    const { name, quantity, phone, totalPrice } = req.body;
+    const userId = req.user._id;
+    const orderId = req.params.id;
+
+    // Ensure user is authenticated
+    if (!userId) {
+      return res
+        .status(401)
+        .json({ message: "Unauthorized access. User not found." });
+    }
+
+    // Find the order by ID
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    // Ensure the order is not already confirmed or paid
+    const orderStatus = order.orderedBy[0]?.orderStatus;
+    const paymentStatus = order.orderedBy[0]?.payment?.paymentStatus;
+
+    if (orderStatus === "Confirmed" || paymentStatus === "Paid") {
+      return res
+        .status(400)
+        .json({
+          message: "Order cannot be updated after confirmation or payment.",
+        });
+    }
+
+    // Retrieve menu item details for price validation
+    const menuItem = await Menu.findById(order.menuItemId);
+    if (!menuItem) {
+      return res
+        .status(404)
+        .json({ message: "Menu item associated with this order not found." });
+    }
+
+    // Validate total price
+    const expectedTotalPrice = quantity * menuItem.price;
+    if (totalPrice !== expectedTotalPrice) {
+      return res.status(400).json({
+        message:
+          "The total price entered does not match the expected total price (item price × quantity). Please check and try again.",
+      });
+    }
+
+    // Update the order details
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      { $set: { name, phone, quantity, totalPrice } }, 
+      { new: true } 
+    );
+
+    res
+      .status(200)
+      .json({ message: "Order updated successfully.", updatedOrder });
+  } catch (error) {
+    console.error(error);
+    res
+      .status(500)
+      .json({ message: "Failed to update order information.", error });
+  }
+};
+
+//Cancel order when the payment is not payed with in 1 hours after ordering the item
+export const notPaidOrderCancel = async(req, res) => {
+  try{
+
+  }catch(error){
+    console.log(error);
+    res.status(500).json({message: "Fail to cancel order when payment is not payed wiht in 1 hours."})
+  }
+}
+
 //Pay for placed Order
 export const payForOrder = async (req, res) => {
   try {
@@ -372,6 +449,7 @@ export const paymentCallback = async (req, res) => {
     res.status(500).json({ message: "Server error verifying payment." });
   }
 };
+
 //Get all order of the item
 export const getAllOrderPerItem = async (req, res) => {
   try {
@@ -419,11 +497,6 @@ export const getAllOrder = async (req, res) => {
   }
 };
 
-//Get All order needs confirmation from manager
-export const getAllOrderRquestConfirmation = async(req, res) => {
-  
-}
-
 //Update order status
 export const updateOrderStatus = async (req, res) => {
   try {
@@ -444,7 +517,9 @@ export const updateOrderStatus = async (req, res) => {
     );
 
     if (!updatedOrder) {
-      return res.status(404).json({ message: "Order not found." });
+      return res
+        .status(404)
+        .json({ message: "Order not found or it is not confirmed." });
     }
 
     res
