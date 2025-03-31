@@ -37,7 +37,7 @@ const orderSchema = mongoose.Schema({
       },
       orderStatus: {
         type: String,
-        enum: ["Pending", "Inprogress", "Completed", "Canceled"],
+        enum: ["Pending", "Confirmed", "Start", "Inprogress", "Completed", "Canceled"],
         default: "Pending",
         required: true,
       },
@@ -57,13 +57,20 @@ const orderSchema = mongoose.Schema({
           default: "Pending",
         },
         amountPaid: {
-          type: Number,
-          default: 0,
+          type: String,
+          default: "0 ETB",
           required: true,
         },
         transactionId: {
           type: String,
         },
+        tx_ref: { 
+          type: String, 
+          unique: true, 
+          default: function () {
+              return `reserve-${uuidv4()}`;
+          }
+      }
       },
     },
   ],

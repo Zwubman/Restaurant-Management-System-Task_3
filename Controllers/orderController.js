@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import axios from "axios";
+import { v4 as uuidv4 } from "uuid";
 import Restaurant from "../Models/restaurantModel.js";
 import Order from "../Models/orderModel.js";
 import User from "../Models/userModel.js";
@@ -12,6 +14,12 @@ export const placeOrder = async (req, res) => {
     const { name, phone, tableNumber, quantity, totalPrice } = req.body;
     const itemId = req.params.id;
     const userId = req.user._id;
+
+    if (!name || !phone || !tableNumber || !totalPrice) {
+      return res.status(303).json({
+        message: "Name, Phone, Table number and Total price is required.",
+      });
+    }
 
     // Check if the user exists
     const user = await User.findById(userId);
@@ -27,7 +35,20 @@ export const placeOrder = async (req, res) => {
       return res.status(404).json({ message: "Table not found." });
     }
 
-    // Ensure the table reservation is confirmed before allowing the order
+    // Check if the user has reserved the requested table
+    const reservationId = table._id;
+    const isValid = user.myReservation.some(
+      (isRes) => isRes.toString() === reservationId.toString()
+    );
+
+    if (!isValid) {
+      return res.status(401).json({
+        message:
+          "You cannot place an order at this table because it is not reserved under you. Please place your order at your reserved table.",
+      });
+    }
+
+    // Ensure the table irder is confirmed before allowing the order
     if (table.reservationStatus !== "Confirmed") {
       return res.status(403).json({
         message:
@@ -41,17 +62,26 @@ export const placeOrder = async (req, res) => {
       return res.status(404).json({ message: "Item not found." });
     }
 
+    // Calculate the expected total price
+    const expectedTotalPrice = quantity * item.price;
+
+    // Validate that the entered total price matches the calculated price
+    if (totalPrice !== expectedTotalPrice) {
+      return res.status(400).json({
+        message:
+          "The total price entered does not match the expected total price (item price × quantity). Please check and try again.",
+      });
+    }
+
     const restaurantId = item.restaurantId;
 
     // Validate that all required ingredients have enough stock before proceeding
     for (let ingredient of item.ingredients) {
       const inventories = await Inventory.findById(ingredient.ingredientId);
       if (!inventories) {
-        return res
-          .status(404)
-          .json({
-            message: `Ingredient ${ingredient.ingredientId} not found.`,
-          });
+        return res.status(404).json({
+          message: `Ingredient ${ingredient.ingredientId} not found.`,
+        });
       }
 
       const requiredQuantity = quantity * ingredient.amountUsedPerItem;
@@ -86,6 +116,9 @@ export const placeOrder = async (req, res) => {
           tableNumber,
           quantity,
           totalPrice,
+          payment: {
+            tx_ref: `order-${uuidv4()}`,
+          },
         },
       ],
       inventory: item.ingredients.map((ingredient) => ({
@@ -96,6 +129,11 @@ export const placeOrder = async (req, res) => {
     });
 
     await order.save();
+
+    // Add the order ID to the user's myOrders array
+    user.myOrders.push(order._id);
+    await user.save();
+
     res.status(200).json({ message: "Order placed successfully.", order });
   } catch (error) {
     console.error(error);
@@ -103,23 +141,317 @@ export const placeOrder = async (req, res) => {
   }
 };
 
-//Cancel order
+//Cancel order before payement
 export const cancelOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
     const userId = req.user._id;
 
-    // const order = await Order.findOnde ({orderedBy._id: orderId});
+    const user = await User.findOne({ _id: userId });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const canceledOrder = await Order.findOneAndUpdate(
+      {
+        _id: orderId,
+        "orderedBy.orderStatus": "Pending",
+      },
+      {
+        $set: { "orderedBy.$.orderStatus": "Canceled" },
+      },
+      { new: true }
+    );
+
+    if (!canceledOrder) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Order canceled successfully", canceledOrder });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to cancel this order." });
   }
 };
+
 //Pay for placed Order
-export const payForOder = async (req, res) => {
+export const payForOrder = async (req, res) => {
   try {
+    const { orderId, paymentMethod } = req.body;
+    const userId = req.user._id;
+
+    if (!orderId || !paymentMethod) {
+      return res
+        .status(303)
+        .json({ message: "Order id and payment method is required." });
+    }
+
+    // Find the order
+    const order = await Order.findOne({
+      _id: orderId,
+      "orderedBy.userId": userId,
+    });
+
+    if (!order) {
+      return res
+        .status(404)
+        .json({ message: "Order not found or not ordered by this user." });
+    }
+
+    // Find the customer's order entry
+    const customerOrder = order.orderedBy.find(
+      (order) => order.userId.toString() === userId.toString()
+    );
+
+    if (!customerOrder) {
+      return res.status(404).json({ message: "Order customer not found." });
+    }
+
+    if (customerOrder.orderStatus !== "Pending") {
+      return res
+        .status(400)
+        .json({ message: "This order is not in a payable state." });
+    }
+
+    // Get user info
+    const user = await User.findById(userId);
+
+    // Ensure tx_ref is assigned
+    let tx_ref = customerOrder.payment?.tx_ref;
+    if (!tx_ref) {
+      tx_ref = `order-${uuidv4()}`;
+      customerOrder.payment.transactionId = tx_ref;
+      await order.save(); // Save transaction ID in DB
+    }
+
+    // Fix phone number format (Remove `+`)
+    const phone_number = customerOrder.phone.replace("+", "");
+
+    // Payment details
+    const paymentData = {
+      amount: parseFloat(customerOrder.totalPrice),
+      currency: "ETB",
+      email: user.email,
+      first_name: customerOrder.name.split(" ")[0] || "Guest",
+      last_name: customerOrder.name.split(" ")[1] || "User",
+      phone_number: phone_number,
+      tx_ref: tx_ref,
+      callback_url: `http://localhost:4444/order/callback?tx_ref=${encodeURIComponent(
+        tx_ref
+      )}`,
+      return_url: `http://localhost:5173/payment-success?orderId=${encodeURIComponent(
+        order._id
+      )}&tx_ref=${encodeURIComponent(tx_ref)}`,
+      customization: {
+        title: "Order Payment",
+        description: `Payment for order at table ${customerOrder.tableNumber}`,
+        backgroundColor: "#0000FF",
+        buttonColor: "blue",
+      },
+    };
+
+    // Initialize Payment with Chapa
+    const chapaResponse = await axios.post(
+      "https://api.chapa.co/v1/transaction/initialize",
+      paymentData,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (chapaResponse.data.status !== "success") {
+      return res.status(500).json({
+        message: "Payment initialization failed",
+        details: chapaResponse.data,
+      });
+    }
+
+    // Store payment details in the order
+    customerOrder.payment.method = paymentMethod;
+    await order.save();
+
+    res.status(200).json({
+      message: "Payment initialized successfully.",
+      tx_ref: tx_ref,
+      payment_url: chapaResponse.data.data.checkout_url,
+    });
+  } catch (error) {
+    console.error("Payment Error:", error);
+    res.status(500).json({ message: "Failed to initiate Payment.", error });
+  }
+};
+
+// Handle payment callback for orders
+export const paymentCallback = async (req, res) => {
+  const { tx_ref } = req.query; // Get transaction reference from query params
+
+  console.log("Raw Callback Query Params:", req.query);
+
+  if (!tx_ref) {
+    return res
+      .status(400)
+      .json({ message: "tx_ref is required in query parameters." });
+  }
+
+  try {
+    // Verify payment status with Chapa
+    const chapaResponse = await axios.get(
+      `https://api.chapa.co/v1/transaction/verify/${tx_ref}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.CHAPA_SECRET_KEY}`,
+        },
+      }
+    );
+
+    const chapaData = chapaResponse.data;
+
+    if (!chapaData || chapaData.status !== "success") {
+      return res.status(400).json({
+        message: "Failed to verify payment status.",
+        chapaData,
+      });
+    }
+
+    const actualStatus = chapaData.data.status;
+    console.log("Verified Payment Status from Chapa:", actualStatus);
+
+    // Find the order using tx_ref
+    const order = await Order.findOne({
+      "orderedBy.payment.tx_ref": tx_ref, // Match transaction ID inside orderedBy
+    }).populate("restaurantId");
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    // Get currency from restaurant settings (if applicable)
+    const currency = order.restaurantId.currency || "ETB";
+    const amountPaid = `${order.orderedBy[0].totalPrice} ${currency}`;
+
+    // Update order status based on actual payment status
+    order.orderedBy.forEach((customerOrder) => {
+      if (customerOrder.payment.tx_ref === tx_ref) {
+        if (actualStatus === "success") {
+          customerOrder.orderStatus = "Confirmed";
+          customerOrder.payment.paymentStatus = "Paid";
+        } else {
+          customerOrder.orderStatus = "Pending";
+          customerOrder.payment.paymentStatus = "Failed";
+        }
+
+        // Store payment details
+        customerOrder.payment = {
+          ...customerOrder.payment,
+          tx_ref: tx_ref,
+          transactionId: chapaResponse.data.data.tx_ref,
+          amountPaid: actualStatus === "success" ? amountPaid : 0,
+          paymentDate: new Date(),
+        };
+      }
+    });
+
+    await order.save();
+
+    // Redirect to frontend with actual status
+    const redirectUrl = `http://localhost:5173/payment-success?orderId=${order._id}
+    &tx_ref=${tx_ref}&status=${actualStatus}`;
+
+    res.status(200).json({
+      message: "Redirecting to the success page",
+      redirectUrl: redirectUrl,
+    });
+  } catch (error) {
+    console.error("Error verifying payment with Chapa:", error);
+    res.status(500).json({ message: "Server error verifying payment." });
+  }
+};
+//Get all order of the item
+export const getAllOrderPerItem = async (req, res) => {
+  try {
+    const { itemId } = req.body;
+    const userId = req.user._id;
+
+    const orders = await Order.find({ menuItemId: itemId });
+
+    if (!orders) {
+      return res.status(404).json({ message: "Order not found for this item" });
+    }
+
+    res.status(200).json({ message: "successfully fetch.", orders });
   } catch (error) {
     console.log(error);
-    res.status(500).json({ message: "Fail to initiate Payment.", error });
+    res.status(500).json({ message: "Fail to fetch all order per item" });
+  }
+};
+
+//Get All Order
+export const getAllOrder = async (req, res) => {
+  try {
+    const { orderId } = req.body;
+
+    const userId = req.user._id;
+
+    const user = await User.findOne(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const orders = await Order.find(orderId);
+
+    if (!orders) {
+      return res.status(404).json({ message: "There is no orders." });
+    }
+
+    res
+      .status(200)
+      .json({ message: "All order in this restaurant is:", orders });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to get all order." });
+  }
+};
+
+//Get All order needs confirmation from manager
+export const getAllOrderRquestConfirmation = async(req, res) => {
+  
+}
+
+//Update order status
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderStatus } = req.body;
+    const orderId = req.params.id;
+
+    const updatedOrder = await Order.findOneAndUpdate(
+      {
+        _id: orderId,
+        "orderedBy.orderStatus": "Confirmed",
+      },
+      {
+        $set: {
+          "orderedBy.$.orderStatus": orderStatus,
+        },
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: "Order not found." });
+    }
+
+    res
+      .status(200)
+      .json({ message: "Order status update successfully.", updatedOrder });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to udpate status of order.", error });
   }
 };
