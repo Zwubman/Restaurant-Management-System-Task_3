@@ -3,7 +3,7 @@ import Order from "../Models/orderModel.js";
 
 
 //Cancel the order when the payment is not payed and order status is confirmed with in 90 minute
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("0 * * * *", async () => {
   console.log("Running cron job to cancel unpaid orders...");
 
   try {
