@@ -31,6 +31,8 @@ const reserveSchema = mongoose.Schema(
       paymentStatus: {
         type: String,
         enum: ["Pending", "Paid", "Failed"],
+        default: "Pending",
+        required: true
       },
       amountPaid: {
         type: String,

@@ -244,15 +244,6 @@ export const updateOrderInfo = async (req, res) => {
   }
 };
 
-//Cancel order when the payment is not payed with in 1 hours after ordering the item
-export const notPaidOrderCancel = async(req, res) => {
-  try{
-
-  }catch(error){
-    console.log(error);
-    res.status(500).json({message: "Fail to cancel order when payment is not payed wiht in 1 hours."})
-  }
-}
 
 //Pay for placed Order
 export const payForOrder = async (req, res) => {

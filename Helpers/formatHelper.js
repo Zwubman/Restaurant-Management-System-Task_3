@@ -4,7 +4,7 @@ export const formatPriceVirtual = (menuSchema) => {
     if (this.restaurantId && this.restaurantId.currency) {
       return `${this.price.amount} ${this.restaurantId.currency}`;
     }
-    return this.price.amount; // Return price without currency if restaurant is not populated
+    return this.price.amount; 
   });
 
   // Ensure virtuals are included when converting the document
@@ -18,7 +18,7 @@ export const formatSalaryVirtual = (userSchema) => {
     if (this.restaurantId && this.restaurantId.currency) {
       return `${this.salary} ${this.restaurantId.currency}`;
     }
-    return this.salary; // Return salary without currency if restaurant is not populated
+    return this.salary; 
   });
 
   // Ensure virtuals are included when converting the document
