@@ -1,11 +1,14 @@
 import mongoose from "mongoose";
 import Reserve from "../Models/reserveModel.js";
 import Restaurant from "../Models/restaurantModel.js";
-import { sendReservationEmail } from "../Helpers/sendMail.js";
 import User from "../Models/userModel.js";
 import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
+import {
+  sendReservationEmail,
+  sendMailcancelReservation,
+} from "../Helpers/sendMail.js";
 
 dotenv.config();
 
@@ -23,14 +26,15 @@ export const createReservationTable = async (req, res) => {
       });
     }
 
-    const isCreated = await Reserve.findOne({ tableNumber: tableNumber });
+    const reservation = await Reserve.findOne({ tableNumber: tableNumber });
 
-    if (isCreated) {
+    if (reservation) {
       return res
         .status(303)
         .json({ message: "Table reservation is already created." });
     }
 
+    const tx_ref = `reserve-${uuidv4()}`;
     const table = await new Reserve({
       tableNumber,
       restaurantId: restaurantId,
@@ -84,7 +88,6 @@ export const bookReservation = async (req, res) => {
 
     const userId = req.user._id;
     const userEmail = req.user.email;
-    const newStatus = "Pending";
 
     const reservation = await Reserve.findOne({
       tableNumber: tableNumber,
@@ -92,27 +95,68 @@ export const bookReservation = async (req, res) => {
 
     const user = await User.findOne({ _id: userId });
 
-    const restaurantName = reservation.restaurantId.restaurantName;
-    const reservationAmount = `${reservation.prepaymentAmount} ETB`;
-
     if (!reservation) {
       return res.status(404).json({ message: "Reserve not found." });
     }
 
-    if (reservation.reservationStatus !== "Available") {
-      return res.status(303).json({
-        message:
-          "Reservation is not available, please reserve an other available reservation.",
-      });
+    const restaurantName = reservation.restaurantId.restaurantName;
+    const reservationAmount = `${reservation.prepaymentAmount} ${reservation.restaurantId.currency}`;
+
+    // Convert entered reservation time to a Date object
+    const enteredTime = new Date(reservationStartDateTime);
+
+    // Ensure reservation.reservedBy exists and is an array
+    if (!Array.isArray(reservation.reservedBy)) {
+      reservation.reservedBy = [];
+    }
+    const tx_ref = `reserve-${uuidv4()}`;
+    // Loop through reservedBy array to check all reservations
+    for (const reserved of reservation.reservedBy) {
+      const startTime = new Date(reserved.reservationStartDateTime);
+      const endTime = new Date(reserved.reservationEndDateTime);
+      const reservationStatus = reserved.reservationStatus;
+
+      if (!reserved.tx_ref || reserved.tx_ref === null) {
+        reserved.tx_ref = `reserve-${uuidv4()}`;
+      }
+
+      if (
+        reservationStatus === "Confirmed" &&
+        enteredTime >= startTime &&
+        enteredTime <= endTime
+      ) {
+        return res.status(303).json({
+          message:
+            "Reservation at this time is already reserved, please reserve it for another time.",
+        });
+      }
     }
 
-    if (reservation.payment.tx_ref === null) {
-      // Generate a unique transaction reference
-      const tx_ref = `reserve-${uuidv4()}`;
-      reservation.payment.tx_ref = tx_ref;
-    }
+    //To extract only date in the foramt of "2025-03-29"
+    const dateTime1 = new Date(reservationStartDateTime);
+    const dateTime2 = new Date(reservationEndDateTime);
+    const startDate = dateTime1.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const endDate = dateTime2.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
 
-    reservation.reservationStatus = newStatus;
+    //To extract only hours and minutes to send it in email
+    const startHours = String(dateTime1.getUTCHours()).padStart(2, "0");
+    const startMinute = String(dateTime1.getUTCMinutes()).padStart(2, "0");
+    const endHours = String(dateTime2.getUTCHours()).padStart(2, "0");
+    const endMinute = String(dateTime2.getUTCMinutes()).padStart(2, "0");
+
+    const amPm1 = startHours >= 12 ? "PM" : "AM";
+    const amPm2 = endHours >= 12 ? "PM" : "AM";
+
+    const startTime = `${startHours}:${startMinute} ${amPm1}`;
+    const endTime = `${endHours}:${endMinute} ${amPm2}`;
 
     reservation.reservedBy.push({
       userId,
@@ -120,6 +164,7 @@ export const bookReservation = async (req, res) => {
       customerPhone,
       reservationStartDateTime,
       reservationEndDateTime,
+      tx_ref: tx_ref,
     });
 
     user.myReservation.push(reservation._id);
@@ -129,11 +174,13 @@ export const bookReservation = async (req, res) => {
 
     await sendReservationEmail(
       userEmail,
-      reservation.tableNumber,
+      tableNumber,
       restaurantName,
-      reservation.customerName,
-      reservation.reservationStartDateTime,
-      reservation.reservationEndDateTime,
+      customerName,
+      startDate,
+      startTime,
+      endDate,
+      endTime,
       reservationAmount
     );
 
@@ -152,8 +199,8 @@ export const cancelBookedReservation = async (req, res) => {
   try {
     const { tableNumber } = req.body;
 
-    const newStatus = "Available";
     const userId = req.user._id;
+    const userEmail = req.user.email;
     const user = await User.findOne({ _id: userId });
 
     if (!user) {
@@ -162,7 +209,9 @@ export const cancelBookedReservation = async (req, res) => {
         .json({ message: "User to cancel reservation not foun" });
     }
 
-    const reservation = await Reserve.findOne({ tableNumber: tableNumber });
+    const reservation = await Reserve.findOne({
+      tableNumber: tableNumber,
+    }).populate("restaurantId");
 
     if (!reservation) {
       return res
@@ -170,42 +219,120 @@ export const cancelBookedReservation = async (req, res) => {
         .json({ message: "Reservation you want to cancel is not found." });
     }
 
-    const isBooked = reservation.reservedBy.some(
+    const canceledReservation = reservation.reservedBy.find(
       (exUser) => exUser.userId.toString() === userId.toString()
     );
 
-    const hasReservation = user.myReservation.some(
-      (hasRes) => hasRes.toString() === reservation._id.toString()
-    );
-
-    if (!isBooked) {
+    if (!canceledReservation) {
       return res.status(404).json({
         message: "Reservation has not booked by this user.",
       });
     }
+    canceledReservation.reservationStatus = "Canceled";
 
-    if (!hasReservation) {
-      return res.status(404).json({
-        message: `User has not reservation of table number ${tableNumber} table.`,
-      });
-    }
+    const customerName = canceledReservation.customerName;
+    const restaurantName = reservation.restaurantId.restaurantName;
+    console.log(restaurantName);
 
-    reservation.reservationStatus = newStatus;
-    reservation.reservedBy = await reservation.reservedBy.filter((resUser) => {
-      resUser.userId.toString() !== userId.toString();
+    //To extract only date in the foramt of "2025-03-29"
+    const dateTime1 = new Date(canceledReservation.reservationStartDateTime);
+    const dateTime2 = new Date(canceledReservation.reservationEndDateTime);
+    const startDate = dateTime1.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    const endDate = dateTime2.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
 
-    user.myReservation = await user.myReservation.filter((resId) => {
-      resId.toString() !== reservation._id.toString();
-    });
+    //To extract only hours and minutes to send it in email
+    const startHours = String(dateTime1.getUTCHours()).padStart(2, "0");
+    const startMinute = String(dateTime1.getUTCMinutes()).padStart(2, "0");
+    const endHours = String(dateTime2.getUTCHours()).padStart(2, "0");
+    const endMinute = String(dateTime2.getUTCMinutes()).padStart(2, "0");
+
+    const amPm1 = startHours >= 12 ? "PM" : "AM";
+    const amPm2 = endHours >= 12 ? "PM" : "AM";
+
+    const startTime = `${startHours}:${startMinute} ${amPm1}`;
+    const endTime = `${endHours}:${endMinute} ${amPm2}`;
 
     await reservation.save();
-    await user.save();
+
+    sendMailcancelReservation(
+      userEmail,
+      restaurantName,
+      tableNumber,
+      customerName,
+      startDate,
+      startTime,
+      endDate,
+      endTime
+    );
 
     res.status(200).json({ message: "Reservation is canceled successfully." });
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to cancel the reservation.", error });
+  }
+};
+
+//Get my reservation
+export const getMyReservation = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findOne(userId).populate("myOrders");
+
+    if (!user) {
+      return res
+        .status(404)
+        .json({ message: "User trying to get my order is not found" });
+    }
+
+    const foundReservations = [];
+
+    for (let reservations of user.myReservation) {
+      const reservationId = reservations;
+      console.log(reservationId);
+
+      const reservation = await Reserve.findOne({ _id: reservationId })
+        .populate({
+          path: "restaurantId",
+          select:
+            "restaurantName restaurantEmail restaurantPhone restaurantAddress",
+        })
+        .select(
+          "tableNumber reservedBy.customerName reservedBy.customerPhone " +
+            "reservedBy.reservationStartDateTime reservedBy.reservationEndDateTime " +
+            "reservedBy.reservationStatus reservedBy.paymentStatus " +
+            "reservedBy.paymentMethod reservedBy.amountPaid"
+        );
+
+      if (!reservation) {
+        console.log(
+          `Reservation with ID ${reservationId} not found. Skipping...`
+        );
+        continue;
+      }
+      foundReservations.push(reservation);
+    }
+
+    if (foundReservations.length > 0) {
+      return res
+        .status(200)
+        .json({ message: "My Reservations", reservations: foundReservations });
+    } else {
+      return res.status(404).json({ message: "No reservation is found." });
+    }
+  } catch (error) {
+    console.log(error),
+      res
+        .status(500)
+        .json({ message: "Fail to access my reservation.", error });
   }
 };
 
@@ -227,10 +354,17 @@ export const payForReservation = async (req, res) => {
         .json({ message: "Reservation not found or not booked by this user." });
     }
 
-    if (reservation.reservationStatus !== "Pending") {
-      return res
-        .status(400)
-        .json({ message: "This reservation is not in a payable state." });
+    const reserve = reservation.reservedBy.find(
+      (exUser) => exUser.userId.toString() === userId.toString()
+    );
+    const tx_ref = reserve.tx_ref;
+
+    for (let reserved of reservation.reservedBy) {
+      if (reserved.reservationStatus !== "Pending") {
+        return res
+          .status(400)
+          .json({ message: "This reservation is not in  payable state." });
+      }
     }
 
     // Get user info
@@ -243,17 +377,6 @@ export const payForReservation = async (req, res) => {
       return res
         .status(404)
         .json({ message: "Reservation customer not found." });
-    }
-
-    // Ensure tx_ref is assigned
-    let tx_ref = reservation.payment?.tx_ref;
-    if (!tx_ref) {
-      tx_ref = `reserve-${uuidv4()}`;
-      reservation.payment = {
-        ...reservation.payment,
-        tx_ref,
-      };
-      await reservation.save();
     }
 
     // Fix phone number format (Remove `+`)
@@ -301,8 +424,32 @@ export const payForReservation = async (req, res) => {
       });
     }
 
-    reservation.payment.method = paymentMethod;
-    await reservation.save();
+    // const updatedreservation = await Reserve.findOneAndUpdate(
+    //   {
+    //     "reservedBy.tx_ref": tx_ref,
+    //   },
+    //   {
+    //     $set: {
+    //       "reservedBy.$.paymentMethod": paymentMethod,
+    //     },
+    //   },
+    //   {
+    //     new: true,
+    //   }
+    // );
+
+    //update the payment method of the order
+    const updatedReserve = reservation.reservedBy.find(
+      (isEX) => isEX.tx_ref.toString() === tx_ref.toString()
+    );
+
+    if (updatedReserve) {
+      updatedReserve.paymentMethod = paymentMethod;
+      await reservation.save();
+      console.log(updatedReserve.paymentMethod);
+    } else {
+      console.log("No matching reservation found for tx_ref:", tx_ref);
+    }
 
     res.status(200).json({
       message: "Payment initialized successfully.",
@@ -356,7 +503,7 @@ export const paymentCallback = async (req, res) => {
 
     // Find reservation using tx_ref
     const reservation = await Reserve.findOne({
-      "payment.tx_ref": tx_ref,
+      "reservedBy.tx_ref": tx_ref,
     }).populate("restaurantId");
 
     const currency = reservation.restaurantId.currency;
@@ -368,31 +515,41 @@ export const paymentCallback = async (req, res) => {
 
     // Update reservation status based on actual payment status
     if (actualStatus === "success") {
-      reservation.reservationStatus = "Confirmed";
-
-      // Store the updated payment details
-      reservation.payment = {
-        paymentStatus: "Paid",
-        transactionId: transactionReference,
-        amountPaid: amountPaid,
-        tx_ref: tx_ref,
-        paymentDate: new Date(),
-      };
+      const reservation = await Reserve.findOneAndUpdate(
+        {
+          "reservedBy.tx_ref": tx_ref,
+        },
+        {
+          $set: {
+            "reservedBy.$.paymentStatus": "Paid",
+            "reservedBy.$.reservationStatus": "Confirmed",
+            "reservedBy.$.transactionId": transactionReference,
+            "reservedBy.$.amountPaid": amountPaid,
+            "reservedBy.$.tx_ref": tx_ref,
+            "reservedBy.$.paymentDate": new Date(),
+          },
+        },
+        {
+          new: true,
+        }
+      );
     } else {
-      // In case the payment failed, update the status
-      reservation.reservationStatus = "Pending";
-
-      // Store the payment failure details
-      reservation.payment = {
-        paymentStatus: "Failed",
-        transactionId: chapaResponse.data.data.tx_ref,
-        amountPaid: 0,
-        tx_ref: tx_ref,
-        paymentDate: new Date(),
-      };
+      const reservation = await Reserve.findOneAndUpdate(
+        {
+          "reservedBy.tx_ref": tx_ref,
+        },
+        {
+          $set: {
+            "reservedBy.$.paymentStatus": "Failed",
+            "reservedBy.$.reservationStatus": "Pending",
+            "reservedBy.$.transactionId": chapaResponse.data.data.tx_ref,
+            "reservedBy.$.amountPaid": 0,
+            "reservedBy.$.tx_ref": tx_ref,
+            "reservedBy.$.paymentDate": new Date(),
+          },
+        }
+      );
     }
-
-    await reservation.save();
 
     // Redirect user to frontend with actual status
     const redirectUrl = `http://localhost:5173/payment-success?reservationId=${reservation._id}
@@ -404,5 +561,20 @@ export const paymentCallback = async (req, res) => {
   } catch (error) {
     console.error("Error verifying payment with Chapa:", error);
     res.status(500).json({ message: "Server error verifying payment." });
+  }
+};
+
+//Update reservation by different reason
+export const updateReservation = async (req, res) => {
+  try {
+    const { reservationStatus, amountPaid, paymentStatus, transactionId } =
+      req.body;
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({
+      message:
+        "Fail to updating reservation after payment by defferent reason.",
+      error,
+    });
   }
 };

@@ -16,9 +16,8 @@ import userRoute from "./Routes/userRoute.js";
 import menuRoute from "./Routes/menuRoute.js";
 import restaurantRoute from "./Routes/restaurantRoute.js";
 import inventoryRoute from "./Routes/inventoryRoute.js";
-import reserveRoute from "./Routes/reserveRoute.js"
+import reserveRoute from "./Routes/reserveRoute.js";
 import orderRoute from "./Routes/orderRoute.js";
-
 
 dotenv.config();
 const app = express();

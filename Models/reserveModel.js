@@ -1,17 +1,10 @@
 import mongoose, { mongo } from "mongoose";
 import { v4 as uuidv4 } from "uuid";
 
-
 const reserveSchema = mongoose.Schema(
   {
     tableNumber: {
       type: Number,
-      required: true,
-    },
-    reservationStatus: {
-      type: String,
-      enum: ["Available", "Pending", "Confirmed", "Canceled", "Completed"],
-      default: "Available",
       required: true,
     },
     guestCount: {
@@ -22,31 +15,6 @@ const reserveSchema = mongoose.Schema(
       type: Number,
       required: true,
       default: 500,
-    },
-    payment: {
-      method: {
-        type: String,
-        enum: ["Telebirr", "CBE"],
-      },
-      paymentStatus: {
-        type: String,
-        enum: ["Pending", "Paid", "Failed"],
-        default: "Pending",
-        required: true
-      },
-      amountPaid: {
-        type: String,
-      },
-      transactionId: {
-        type: String,
-      },
-      tx_ref: { 
-        type: String, 
-        unique: true, 
-        default: function () {
-            return `reserve-${uuidv4()}`;
-        }
-    }
     },
     reservedBy: [
       {
@@ -66,6 +34,34 @@ const reserveSchema = mongoose.Schema(
         reservationEndDateTime: {
           type: Date,
         },
+        reservationStatus: {
+          type: String,
+          enum: ["Pending", "Confirmed", "Canceled", "Completed"],
+          default: "Pending",
+          required: true
+        },
+        paymentMethod: {
+          type: String,
+          enum: ["Telebirr", "CBE"],
+        },
+        paymentStatus: {
+          type: String,
+          enum: ["Pending", "Paid", "Failed"],
+          default: "Pending",
+          required: true,
+        },
+        amountPaid: {
+          type: String,
+        },
+        transactionId: {
+          type: String,
+        },
+        tx_ref: {
+          type: String,
+        },
+        paymentDate: {
+          type: Date
+        }
       },
     ],
     restaurantId: {

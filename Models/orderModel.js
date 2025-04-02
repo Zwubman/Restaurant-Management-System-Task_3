@@ -70,6 +70,9 @@ const orderSchema = mongoose.Schema({
           default: function () {
               return `reserve-${uuidv4()}`;
           }
+      },
+      paymentDate: {
+        type: Date,
       }
       },
     },

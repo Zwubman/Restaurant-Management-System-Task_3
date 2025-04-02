@@ -6,7 +6,8 @@ import {
   cancelBookedReservation,
   deleteReserveTable,
   payForReservation,
-  paymentCallback
+  paymentCallback,
+  getMyReservation
 } from "../Controllers/reserveController.js";
 import { verifyToken } from "../Middlewares/authMiddleware.js";
 
@@ -18,5 +19,6 @@ router.post("/reservation", verifyToken, bookReservation);
 router.post("/cancel-reservation", verifyToken, cancelBookedReservation);
 router.post("/pay", verifyToken,  payForReservation);
 router.get("/callback", paymentCallback);
+router.get("/my-rservations", verifyToken, getMyReservation);
 
 export default router;
