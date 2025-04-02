@@ -48,13 +48,17 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    // Ensure the table irder is confirmed before allowing the order
-    if (table.reservationStatus !== "Confirmed") {
+    const checkTable = await table.reservedBy.some(
+      (isValid) => isValid.reservationStatus === "Confirmed"
+    );
+
+    if (!checkTable) {
       return res.status(403).json({
         message:
           "You are trying to place the order at the wrong table. Please reserve the table and place an order at your table.",
       });
     }
+    
 
     // Check if the menu item exists
     const item = await Menu.findById(itemId);
@@ -202,11 +206,9 @@ export const updateOrderInfo = async (req, res) => {
     const paymentStatus = order.orderedBy[0]?.payment?.paymentStatus;
 
     if (orderStatus === "Confirmed" || paymentStatus === "Paid") {
-      return res
-        .status(400)
-        .json({
-          message: "Order cannot be updated after confirmation or payment.",
-        });
+      return res.status(400).json({
+        message: "Order cannot be updated after confirmation or payment.",
+      });
     }
 
     // Retrieve menu item details for price validation
@@ -229,8 +231,8 @@ export const updateOrderInfo = async (req, res) => {
     // Update the order details
     const updatedOrder = await Order.findByIdAndUpdate(
       orderId,
-      { $set: { name, phone, quantity, totalPrice } }, 
-      { new: true } 
+      { $set: { name, phone, quantity, totalPrice } },
+      { new: true }
     );
 
     res
@@ -243,7 +245,6 @@ export const updateOrderInfo = async (req, res) => {
       .json({ message: "Failed to update order information.", error });
   }
 };
-
 
 //Pay for placed Order
 export const payForOrder = async (req, res) => {

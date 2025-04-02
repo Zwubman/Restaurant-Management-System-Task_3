@@ -220,19 +220,22 @@ export const cancelBookedReservation = async (req, res) => {
     }
 
     const canceledReservation = reservation.reservedBy.find(
-      (exUser) => exUser.userId.toString() === userId.toString()
+      (exUser) =>
+        exUser.userId.toString() === userId.toString() &&
+        exUser.reservationStatus !== "Canceled"
     );
 
     if (!canceledReservation) {
       return res.status(404).json({
-        message: "Reservation has not booked by this user.",
+        message:
+          "Reservation has not booked by this user or it is not in cancelable state.",
       });
     }
+
     canceledReservation.reservationStatus = "Canceled";
 
     const customerName = canceledReservation.customerName;
     const restaurantName = reservation.restaurantId.restaurantName;
-    console.log(restaurantName);
 
     //To extract only date in the foramt of "2025-03-29"
     const dateTime1 = new Date(canceledReservation.reservationStartDateTime);
@@ -564,17 +567,4 @@ export const paymentCallback = async (req, res) => {
   }
 };
 
-//Update reservation by different reason
-export const updateReservation = async (req, res) => {
-  try {
-    const { reservationStatus, amountPaid, paymentStatus, transactionId } =
-      req.body;
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({
-      message:
-        "Fail to updating reservation after payment by defferent reason.",
-      error,
-    });
-  }
-};
+
