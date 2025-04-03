@@ -6,8 +6,8 @@ import axios from "axios";
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
 import {
-  sendReservationEmail,
-  sendMailcancelReservation,
+  sendEmailNotification,
+  sendPaymentMailNotification,
 } from "../Helpers/sendMail.js";
 
 dotenv.config();
@@ -172,7 +172,10 @@ export const bookReservation = async (req, res) => {
     await reservation.save();
     await user.save();
 
-    await sendReservationEmail(
+
+    //Send email notification with the following details
+    const type = "booking";
+    await sendEmailNotification(
       userEmail,
       tableNumber,
       restaurantName,
@@ -181,6 +184,7 @@ export const bookReservation = async (req, res) => {
       startTime,
       endDate,
       endTime,
+      type,
       reservationAmount
     );
 
@@ -222,13 +226,14 @@ export const cancelBookedReservation = async (req, res) => {
     const canceledReservation = reservation.reservedBy.find(
       (exUser) =>
         exUser.userId.toString() === userId.toString() &&
-        exUser.reservationStatus !== "Canceled"
+        exUser.reservationStatus !== "Canceled" &&
+        exUser.paymentStatus !== "Confirmed"
     );
 
     if (!canceledReservation) {
       return res.status(404).json({
         message:
-          "Reservation has not booked by this user or it is not in cancelable state.",
+          "Reservation has not booked by this user, it is not in cancelable state or the payment for these reservation is paid.",
       });
     }
 
@@ -265,7 +270,8 @@ export const cancelBookedReservation = async (req, res) => {
 
     await reservation.save();
 
-    sendMailcancelReservation(
+    const type = "cancellation";
+    sendEmailNotification(
       userEmail,
       restaurantName,
       tableNumber,
@@ -273,7 +279,8 @@ export const cancelBookedReservation = async (req, res) => {
       startDate,
       startTime,
       endDate,
-      endTime
+      endTime,
+      type
     );
 
     res.status(200).json({ message: "Reservation is canceled successfully." });
@@ -360,6 +367,10 @@ export const payForReservation = async (req, res) => {
     const reserve = reservation.reservedBy.find(
       (exUser) => exUser.userId.toString() === userId.toString()
     );
+
+    // const tx_ref = `reserve_${userId}_${Date.now()}`;
+    // reserve.tx_ref = tx_ref;
+    // await reserve.save();
     const tx_ref = reserve.tx_ref;
 
     for (let reserved of reservation.reservedBy) {
@@ -448,8 +459,8 @@ export const payForReservation = async (req, res) => {
 
     if (updatedReserve) {
       updatedReserve.paymentMethod = paymentMethod;
+
       await reservation.save();
-      console.log(updatedReserve.paymentMethod);
     } else {
       console.log("No matching reservation found for tx_ref:", tx_ref);
     }
@@ -471,6 +482,7 @@ export const payForReservation = async (req, res) => {
 // Handle payment callback
 export const paymentCallback = async (req, res) => {
   const tx_ref = req.query.tx_ref;
+  const userEmail = req.user.email;
 
   console.log("Raw Callback Query Params:", req.query);
 
@@ -509,8 +521,21 @@ export const paymentCallback = async (req, res) => {
       "reservedBy.tx_ref": tx_ref,
     }).populate("restaurantId");
 
+
+    const userInfo = await reservation.reservedBy.find(
+      (usIn) => usIn.tx_ref === tx_ref
+    );
+
+    if (!userInfo) {
+      return res
+        .status(404)
+        .json({ message: "Reservaion information not found." });
+    }
+
     const currency = reservation.restaurantId.currency;
     const amountPaid = `${reservation.prepaymentAmount} ${currency}`;
+
+    const restaurantName = reservation.restaurantId.restaurantName;
 
     if (!reservation) {
       return res.status(404).json({ message: "Reservation not found." });
@@ -535,6 +560,19 @@ export const paymentCallback = async (req, res) => {
         {
           new: true,
         }
+      );
+
+
+      //Send email notification
+      const type = "reservation"
+      sendPaymentMailNotification(
+        userEmail,
+        userInfo.customerName,
+        restaurantName,
+        reservation.tableNumber,
+        userInfo.amountPaid,
+        userInfo.paymentStatus,
+        type,
       );
     } else {
       const reservation = await Reserve.findOneAndUpdate(
@@ -566,5 +604,3 @@ export const paymentCallback = async (req, res) => {
     res.status(500).json({ message: "Server error verifying payment." });
   }
 };
-
-

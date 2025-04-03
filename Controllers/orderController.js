@@ -7,6 +7,10 @@ import User from "../Models/userModel.js";
 import Menu from "../Models/menuModel.js";
 import Inventory from "../Models/inventoryModel.js";
 import Reserve from "../Models/reserveModel.js";
+import {
+  sendPaymentMailNotification,
+  sendOrderEmailNotification,
+} from "../Helpers/sendMail.js";
 
 //To order the item from menu
 export const placeOrder = async (req, res) => {
@@ -14,6 +18,7 @@ export const placeOrder = async (req, res) => {
     const { name, phone, tableNumber, quantity, totalPrice } = req.body;
     const itemId = req.params.id;
     const userId = req.user._id;
+    const userEmail = req.user.email;
 
     if (!name || !phone || !tableNumber || !totalPrice) {
       return res.status(303).json({
@@ -58,10 +63,9 @@ export const placeOrder = async (req, res) => {
           "You are trying to place the order at the wrong table. Please reserve the table and place an order at your table.",
       });
     }
-    
 
     // Check if the menu item exists
-    const item = await Menu.findById(itemId);
+    const item = await Menu.findById(itemId).populate("restaurantId");
     if (!item) {
       return res.status(404).json({ message: "Item not found." });
     }
@@ -77,7 +81,10 @@ export const placeOrder = async (req, res) => {
       });
     }
 
-    const restaurantId = item.restaurantId;
+    //Extract some order information for email notification
+    const restaurantId = item.restaurantId._id;
+    const restaurantName = item.restaurantId.restaurantName;
+    const menuItemName = item.menuItemName;
 
     // Validate that all required ingredients have enough stock before proceeding
     for (let ingredient of item.ingredients) {
@@ -137,6 +144,19 @@ export const placeOrder = async (req, res) => {
     // Add the order ID to the user's myOrders array
     user.myOrders.push(order._id);
     await user.save();
+
+    const type = "Placement";
+    await sendOrderEmailNotification(
+      userEmail,
+      restaurantName,
+      tableNumber,
+      name,
+      phone,
+      menuItemName,
+      quantity,
+      type,
+      totalPrice,
+    );
 
     res.status(200).json({ message: "Order placed successfully.", order });
   } catch (error) {
@@ -246,16 +266,24 @@ export const updateOrderInfo = async (req, res) => {
   }
 };
 
-//Pay for placed Order
+// Pay for placed Order
 export const payForOrder = async (req, res) => {
   try {
     const { orderId, paymentMethod } = req.body;
     const userId = req.user._id;
+    const userEmail = req.user.email;
 
     if (!orderId || !paymentMethod) {
       return res
         .status(303)
         .json({ message: "Order id and payment method is required." });
+    }
+
+    // Get user info
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
     }
 
     // Find the order
@@ -272,21 +300,16 @@ export const payForOrder = async (req, res) => {
 
     // Find the customer's order entry
     const customerOrder = order.orderedBy.find(
-      (order) => order.userId.toString() === userId.toString()
+      (order) =>
+        order.userId.toString() === userId.toString() &&
+        order.orderStatus === "Pending"
     );
 
     if (!customerOrder) {
-      return res.status(404).json({ message: "Order customer not found." });
+      return res.status(404).json({
+        message: "Order customer not found or not in a payable state.",
+      });
     }
-
-    if (customerOrder.orderStatus !== "Pending") {
-      return res
-        .status(400)
-        .json({ message: "This order is not in a payable state." });
-    }
-
-    // Get user info
-    const user = await User.findById(userId);
 
     // Ensure tx_ref is assigned
     let tx_ref = customerOrder.payment?.tx_ref;
@@ -394,15 +417,37 @@ export const paymentCallback = async (req, res) => {
     // Find the order using tx_ref
     const order = await Order.findOne({
       "orderedBy.payment.tx_ref": tx_ref, // Match transaction ID inside orderedBy
-    }).populate("restaurantId");
+    })
+      .populate("restaurantId")
+      .populate("menuItemId");
 
     if (!order) {
       return res.status(404).json({ message: "Order not found." });
     }
 
+    // Find the customer's order
+    const customerOrder = order.orderedBy.find(
+      (order) => order.payment.tx_ref === tx_ref
+    );
+
+    if (!customerOrder) {
+      return res.status(404).json({
+        message: "Customer order not found for this transaction.",
+      });
+    }
+
+    const userEmail = req.user.email;
+
+    const menuItemName = order.menuItemId.menuItemName;
+
+    console.log(menuItemName);
+    if (!menuItemName) {
+      return es.status(404).json({ message: "Ordered item not found." });
+    }
+
     // Get currency from restaurant settings (if applicable)
     const currency = order.restaurantId.currency || "ETB";
-    const amountPaid = `${order.orderedBy[0].totalPrice} ${currency}`;
+    const amountPaid = `${customerOrder.totalPrice} ${currency}`;
 
     // Update order status based on actual payment status
     order.orderedBy.forEach((customerOrder) => {
@@ -410,19 +455,30 @@ export const paymentCallback = async (req, res) => {
         if (actualStatus === "success") {
           customerOrder.orderStatus = "Confirmed";
           customerOrder.payment.paymentStatus = "Paid";
+          (customerOrder.payment.tx_ref = tx_ref),
+            (customerOrder.payment.transactionId =
+              chapaResponse.data.data.tx_ref),
+            (customerOrder.payment.amountPaid = amountPaid),
+            (customerOrder.payment.paymentDate = new Date());
+
+          const type = "order";
+          // Send Payment Notification
+          sendPaymentMailNotification(
+            userEmail,
+            customerOrder.name,
+            order.restaurantId.restaurantName,
+            customerOrder.tableNumber,
+            amountPaid,
+            customerOrder.payment.paymentStatus,
+            type,
+            customerOrder.quantity,
+            menuItemName
+          );
         } else {
           customerOrder.orderStatus = "Pending";
           customerOrder.payment.paymentStatus = "Failed";
+          customerOrder.payment.amountPaid = 0;
         }
-
-        // Store payment details
-        customerOrder.payment = {
-          ...customerOrder.payment,
-          tx_ref: tx_ref,
-          transactionId: chapaResponse.data.data.tx_ref,
-          amountPaid: actualStatus === "success" ? amountPaid : 0,
-          paymentDate: new Date(),
-        };
       }
     });
 
@@ -458,6 +514,65 @@ export const getAllOrderPerItem = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(500).json({ message: "Fail to fetch all order per item" });
+  }
+};
+
+//Get my orders
+export const getMyOrders = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findOne({ _id: userId }).populate("myOrders");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const myOrders = [];
+    for (let order of user.myOrders) {
+      const orderId = order._id;
+      // console.log(orderId);
+
+      const orders = await Order.findOne(orderId)
+        .populate({
+          path: "menuItemId",
+          select: "menuItemName category price ingredients.amountUsedPerItem",
+          populate: [
+            {
+              path: "ingredients.ingredientId",
+              model: "Inventory",
+              select: "ingredientName unit",
+            },
+            {
+              path: "restaurantId", // Populate restaurant details including currency
+              model: "Restaurant",
+              select: "currency",
+            },
+          ],
+        })
+        .populate({
+          path: "restaurantId",
+          select:
+            "restaurantName restaurantAddress restaurantEmail restaurantPhone",
+        })
+        .select(
+          "orderedBy.name orderedBy.tableNumber orderedBy.quantity orderedBy.totalPrice orderedBy.orderStatus"
+        )
+        .exec();
+
+      if (!orders) {
+        return res
+          .status(404)
+          .json({ message: "Order placed by thise user not found." });
+      }
+
+      myOrders.push(orders);
+    }
+
+    res.status(200).json({ message: "My orders:", orders: myOrders });
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ message: "Fail to access my orders.", error });
   }
 };
 

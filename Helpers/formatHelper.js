@@ -1,10 +1,13 @@
 export const formatPriceVirtual = (menuSchema) => {
-  // Define a virtual field to append currency dynamically
   menuSchema.virtual("formattedPrice").get(function () {
-    if (this.restaurantId && this.restaurantId.currency) {
-      return `${this.price.amount} ${this.restaurantId.currency}`;
+    if (
+      this.restaurantId &&
+      typeof this.restaurantId === "object" &&
+      this.restaurantId.currency
+    ) {
+      return `${this.price} ${this.restaurantId.currency}`;
     }
-    return this.price.amount; 
+    return `${this.price}`; // Ensure it always returns a string
   });
 
   // Ensure virtuals are included when converting the document
@@ -18,7 +21,7 @@ export const formatSalaryVirtual = (userSchema) => {
     if (this.restaurantId && this.restaurantId.currency) {
       return `${this.salary} ${this.restaurantId.currency}`;
     }
-    return this.salary; 
+    return this.salary;
   });
 
   // Ensure virtuals are included when converting the document
