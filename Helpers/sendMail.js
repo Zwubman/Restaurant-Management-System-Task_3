@@ -84,6 +84,7 @@ export const sendEmailNotification = async (
 
 //To send notification when place order and cancel order
 export const sendOrderEmailNotification = async (
+  userEmail,
   restaurantName,
   tableNumber,
   name,
@@ -124,11 +125,11 @@ export const sendOrderEmailNotification = async (
                 <li><strong>Position:</strong> Table Number ${tableNumber}</li>
                 <li><strong>Total Price:</strong> ${totalPrice}</li>
             </ul>
-            <p><strong>Please proceed with the payment of <span style="color: red;">${totalPrice}</span> to confirm your order.</strong></p>
+            <p><strong style="color: blue">Please proceed with the payment of <span style="color: red;">${totalPrice}</span> to confirm your order.</strong></p>
             <p>Thank you for ordering at <strong>${restaurantName}</strong>!</p>`;
 
-    }else if(type === "Cancellation"){
-      subject = "Order Placed Successfully!";
+    }else if(type === "Order Cancellation"){
+      subject = "Order Canceled Successfully!";
       emailBody = `
             <h2>Order Cancellation Confirmation</h2>
             <p>Hello <strong>${name}</strong>,</p>
@@ -145,7 +146,7 @@ export const sendOrderEmailNotification = async (
             <p>For any assistance, feel free to contact us.</p>
             <p>We look forward to serving you in the future!</p>`;
     }else{
-      throw new Error("Invalid email type. Use 'Order Placement' or 'Order Cancellation'.")
+      throw new Error("Invalid email type. Use 'Placement' or 'Order Cancellation'.")
     }
 
 

@@ -155,7 +155,7 @@ export const placeOrder = async (req, res) => {
       menuItemName,
       quantity,
       type,
-      totalPrice,
+      totalPrice
     );
 
     res.status(200).json({ message: "Order placed successfully.", order });
@@ -170,6 +170,7 @@ export const cancelOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
     const userId = req.user._id;
+    const userEmail = req.user.email;
 
     const user = await User.findOne({ _id: userId });
 
@@ -186,11 +187,39 @@ export const cancelOrder = async (req, res) => {
         $set: { "orderedBy.$.orderStatus": "Canceled" },
       },
       { new: true }
-    );
+    )
+      .populate("restaurantId")
+      .populate("menuItemId");
 
     if (!canceledOrder) {
       return res.status(404).json({ message: "Order not found." });
     }
+
+    if (!canceledOrder.orderedBy) {
+      return res.status(400).json({ message: "No reserved orders found." });
+    }
+
+    //To extract order information to send it via email notification
+    const restaurantName = canceledOrder.restaurantId.restaurantName;
+    const menuItemName = canceledOrder.menuItemId.menuItemName;
+    const order = canceledOrder.orderedBy.find(
+      (canOrder) =>
+        canOrder.userId.toString() === userId.toString() &&
+        canOrder.orderStatus === "Canceled"
+    );
+
+
+    const type = "Order Cancellation";
+    await sendOrderEmailNotification(
+      userEmail,
+      restaurantName,
+      order.tableNumber,
+      order.name,
+      order.phone,
+      menuItemName,
+      order.quantity,
+      type,
+    );
 
     res
       .status(200)
