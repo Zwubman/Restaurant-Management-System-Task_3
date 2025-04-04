@@ -239,9 +239,11 @@ export const sendPaymentMailNotification = async (
 
 export const sendInventoryReportMailNotification = async (
   managerEmail,
+  firstName,
+  middleName,
   restaurantName,
-  ingredientName,
-  availableQuantity
+  ingredientNames,
+  availableQuantities
 ) => {
   try {
     const transporter = nodemailer.createTransport({
@@ -257,24 +259,36 @@ export const sendInventoryReportMailNotification = async (
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: managerEmail,
-      subject: `Urgent: Low Stock Alert for ${ingredientName}!`,
+      subject: "⚠️ Low Inventory Alert: Action Required",
       html: `
-      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
-        <h2 style="color: #d9534f;">⚠️ Low Stock Alert</h2>
-        <p>Dear Manager,</p>
-        <p>We hope this email finds you well. This is to notify you that the available quantity of <strong>${ingredientName}</strong> at <strong>${restaurantName}</strong> has dropped below <strong>15%</strong> of the originally supplied amount.</p>
-        <h3>🔍 Current Stock Details:</h3>
-        <ul>
-          <li><strong>Ingredient Name:</strong> ${ingredientName}</li>
-          <li><strong>Available Quantity:</strong> ${availableQuantity}</li>
-          <li><strong>Threshold Limit:</strong> 15% of originally supplied stock</li>
-        </ul>
-        <p>To ensure smooth operations and avoid shortages, please arrange for a new supply as soon as possible.</p>
-        <p>If you have any questions, feel free to reach out.</p>
-        <p>Best Regards,</p>
-        <p><strong>Inventory Management Team</strong><br>${restaurantName}</p>
-      </div>
-    `,
+        <div style="font-family: Arial, sans-serif; padding: 10px;">
+          <h2>🔔 Inventory Alert for ${restaurantName}</h2>
+          <p>Dear <strong>${firstName} ${middleName}</strong>,</p>
+          <p>The following ingredients in your inventory have dropped below <strong>15%</strong> of their originally supplied amount:</p>
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <thead>
+              <tr>
+                <th style="border: 1px solid #ddd; padding: 8px;">Ingredient Name</th>
+                <th style="border: 1px solid #ddd; padding: 8px;">Available Quantity</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ingredientNames
+                .map(
+                  (name, index) => `
+                <tr>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${name}</td>
+                  <td style="border: 1px solid #ddd; padding: 8px;">${availableQuantities[index]}</td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+          <p>Please restock these ingredients as soon as possible to avoid any service interruptions.</p>
+          <p>Thank you,<br/>Inventory Monitoring System</p>
+        </div>
+      `,
     };
 
     await transporter.sendMail(mailOptions);

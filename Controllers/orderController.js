@@ -44,7 +44,7 @@ export const placeOrder = async (req, res) => {
     // Check if the user has reserved the requested table
     const reservationId = table._id;
     const isValid = user.myReservation.some(
-      (isRes) => isRes.toString() === reservationId.toString()
+      (isRes) => isRes.reservationId.toString() === reservationId.toString()
     );
 
     if (!isValid) {
@@ -55,7 +55,9 @@ export const placeOrder = async (req, res) => {
     }
 
     const checkTable = await table.reservedBy.some(
-      (isValid) => isValid.reservationStatus === "Confirmed"
+      (isValid) =>
+        isValid.reservationStatus === "Confirmed" &&
+        isValid.paymentStatus === "Paid"
     );
 
     if (!checkTable) {
@@ -69,15 +71,6 @@ export const placeOrder = async (req, res) => {
     const item = await Menu.findById(itemId).populate("restaurantId");
     if (!item) {
       return res.status(404).json({ message: "Item not found." });
-    }
-
-    const manager = await User.findOne({
-      role: "Manager",
-      restaurantId: restaurantId,
-    });
-
-    if (!manager) {
-      return res.status(404).json({ message: "Restaurant Manager not found." });
     }
 
     // Calculate the expected total price
@@ -96,6 +89,17 @@ export const placeOrder = async (req, res) => {
     const restaurantName = item.restaurantId.restaurantName;
     const menuItemName = item.menuItemName;
 
+    const manager = await User.findOne({
+      role: "Manager",
+      restaurantId: restaurantId,
+    });
+
+    if (!manager) {
+      return res.status(404).json({ message: "Restaurant Manager not found." });
+    }
+
+    let ingredientNames = [];
+    let availableQuantities = [];
     // Validate that all required ingredients have enough stock before proceeding
     for (let ingredient of item.ingredients) {
       const inventory = await Inventory.findById(ingredient.ingredientId);
@@ -105,25 +109,12 @@ export const placeOrder = async (req, res) => {
         });
       }
 
-      // const ingredientName = inventory.ingredientName;
-      // const availableQuantity = inventory.availableQuantity;
-      // const requiredQuantity = quantity * ingredient.amountUsedPerItem;
-
-      const { ingredientName, availableQuantity, supliedAmount } = inventory;
+    
       const requiredQuantity = quantity * ingredient.amountUsedPerItem;
-
-      // Notify the manager if available stock is below 15% of supplied amount
-      if (availableQuantity <= 0.15 * supliedAmount) {
-        await sendInventoryReportMailNotification(
-          manager.email,
-          restaurantName,
-          ingredientName,
-          availableQuantity
-        );
-      }
+      const supliedAmount = inventory.supliedAmount;
 
       // If any ingredient is insufficient, mark the item as unavailable and prevent the order
-      if (availableQuantity < requiredQuantity) {
+      if (inventory.availableQuantity < requiredQuantity) {
         if (item.isAvailable) {
           item.isAvailable = false;
           await item.save();
@@ -133,15 +124,29 @@ export const placeOrder = async (req, res) => {
             "The item you want to order is not available. Please choose another item or wait until it becomes available.",
         });
       }
+
+      inventory.availableQuantity -= quantity * ingredient.amountUsedPerItem;
+      await inventory.save();
+
+      // Notify the manager if available stock is below 15% of supplied amount
+      if (inventory.availableQuantity <= 0.15 * supliedAmount) {
+        ingredientNames.push(inventory.ingredientName);
+        availableQuantities.push(inventory.availableQuantity);
+      }
     }
 
-    // Deduct required quantity from each ingredient's available stock
-    for (let ingredient of item.ingredients) {
-      const inventories = await Inventory.findById(ingredient.ingredientId);
-      if (inventories) {
-        availableQuantity -= quantity * ingredient.amountUsedPerItem;
-        await inventories.save();
-      }
+    if (
+      ingredientNames.length === availableQuantities.length &&
+      ingredientNames.length > 0
+    ) {
+      await sendInventoryReportMailNotification(
+        manager.email,
+        manager.firstName,
+        manager.middleName,
+        restaurantName,
+        ingredientNames,
+        availableQuantities
+      );
     }
 
     // Place the order since all ingredients are available
