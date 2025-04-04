@@ -56,24 +56,29 @@ const userSchema = mongoose.Schema({
   ],
   myReservation: [
     {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Reserve",
+      reservationId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Reserve",
+      },
+      reservedById: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Reserve",
+      },
     },
   ],
   menuId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "Menu"
+    ref: "Menu",
   },
 
-  restaurantId: {  
+  restaurantId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Restaurant",
-  }
+  },
 });
 
 // Apply the virtual field logic from the helper
 formatSalaryVirtual(userSchema);
-
 
 const User = mongoose.model("User", userSchema);
 export default User;

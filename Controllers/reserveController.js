@@ -166,12 +166,18 @@ export const bookReservation = async (req, res) => {
       reservationEndDateTime,
       tx_ref: tx_ref,
     });
-
-    user.myReservation.push(reservation._id);
-
     await reservation.save();
-    await user.save();
 
+    const reservedBy = await reservation.reservedBy.find(
+      (resBy) => resBy.tx_ref === tx_ref
+    );
+
+    user.myReservation.push({
+      reservationId: reservation._id,
+      reservedById: reservedBy._id,
+    });
+
+    await user.save();
 
     //Send email notification with the following details
     const type = "booking";
@@ -521,7 +527,6 @@ export const paymentCallback = async (req, res) => {
       "reservedBy.tx_ref": tx_ref,
     }).populate("restaurantId");
 
-
     const userInfo = await reservation.reservedBy.find(
       (usIn) => usIn.tx_ref === tx_ref
     );
@@ -562,9 +567,8 @@ export const paymentCallback = async (req, res) => {
         }
       );
 
-
       //Send email notification
-      const type = "reservation"
+      const type = "reservation";
       sendPaymentMailNotification(
         userEmail,
         userInfo.customerName,
@@ -572,7 +576,7 @@ export const paymentCallback = async (req, res) => {
         reservation.tableNumber,
         userInfo.amountPaid,
         userInfo.paymentStatus,
-        type,
+        type
       );
     } else {
       const reservation = await Reserve.findOneAndUpdate(

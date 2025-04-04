@@ -92,10 +92,9 @@ export const sendOrderEmailNotification = async (
   menuItemName,
   quantity,
   type,
-  totalPrice = null,
-  
+  totalPrice = null
 ) => {
-  try{
+  try {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
@@ -106,11 +105,10 @@ export const sendOrderEmailNotification = async (
       },
     });
 
-
     let subject = "";
     let emailBody = "";
 
-    if(type === "Placement"){
+    if (type === "Placement") {
       subject = "Order Placed Successfully – Payment Pending!";
       emailBody = `
             <h2>Order Placed Successfully!</h2>
@@ -127,8 +125,7 @@ export const sendOrderEmailNotification = async (
             </ul>
             <p><strong style="color: blue">Please proceed with the payment of <span style="color: red;">${totalPrice}</span> to confirm your order.</strong></p>
             <p>Thank you for ordering at <strong>${restaurantName}</strong>!</p>`;
-
-    }else if(type === "Order Cancellation"){
+    } else if (type === "Order Cancellation") {
       subject = "Order Canceled Successfully!";
       emailBody = `
             <h2>Order Cancellation Confirmation</h2>
@@ -145,10 +142,11 @@ export const sendOrderEmailNotification = async (
             <p>If this cancellation was made by mistake, you may place a new order at <strong>${restaurantName}</strong>.</p>
             <p>For any assistance, feel free to contact us.</p>
             <p>We look forward to serving you in the future!</p>`;
-    }else{
-      throw new Error("Invalid email type. Use 'Placement' or 'Order Cancellation'.")
+    } else {
+      throw new Error(
+        "Invalid email type. Use 'Placement' or 'Order Cancellation'."
+      );
     }
-
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -164,7 +162,7 @@ export const sendOrderEmailNotification = async (
 
     await transporter.sendMail(mailOptions);
     console.log(`Email sent successfully to: ${userEmail}`);
-  }catch(error){
+  } catch (error) {
     console.log("Error sending email: ", error);
   }
 };
@@ -234,6 +232,33 @@ export const sendPaymentMailNotification = async (
 
     await transporter.sendMail(mailOptions);
     console.log(`Email sent successfully to: ${userEmail}`);
+  } catch (error) {
+    console.log("Error sending email:", error);
+  }
+};
+
+export const sendInventoryReportMailNotification = async () => {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: userEmail,
+      subject: "",
+      html: `
+      `,
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`Email sent successfully to ${userEmail}`);
   } catch (error) {
     console.log("Error sending email:", error);
   }
