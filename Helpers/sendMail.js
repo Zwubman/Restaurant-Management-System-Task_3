@@ -237,7 +237,12 @@ export const sendPaymentMailNotification = async (
   }
 };
 
-export const sendInventoryReportMailNotification = async () => {
+export const sendInventoryReportMailNotification = async (
+  managerEmail,
+  restaurantName,
+  ingredientName,
+  availableQuantity
+) => {
   try {
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
@@ -251,14 +256,29 @@ export const sendInventoryReportMailNotification = async () => {
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: userEmail,
-      subject: "",
+      to: managerEmail,
+      subject: `Urgent: Low Stock Alert for ${ingredientName}!`,
       html: `
-      `,
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+        <h2 style="color: #d9534f;">⚠️ Low Stock Alert</h2>
+        <p>Dear Manager,</p>
+        <p>We hope this email finds you well. This is to notify you that the available quantity of <strong>${ingredientName}</strong> at <strong>${restaurantName}</strong> has dropped below <strong>15%</strong> of the originally supplied amount.</p>
+        <h3>🔍 Current Stock Details:</h3>
+        <ul>
+          <li><strong>Ingredient Name:</strong> ${ingredientName}</li>
+          <li><strong>Available Quantity:</strong> ${availableQuantity}</li>
+          <li><strong>Threshold Limit:</strong> 15% of originally supplied stock</li>
+        </ul>
+        <p>To ensure smooth operations and avoid shortages, please arrange for a new supply as soon as possible.</p>
+        <p>If you have any questions, feel free to reach out.</p>
+        <p>Best Regards,</p>
+        <p><strong>Inventory Management Team</strong><br>${restaurantName}</p>
+      </div>
+    `,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email sent successfully to ${userEmail}`);
+    console.log(`Email sent successfully to ${managerEmail}`);
   } catch (error) {
     console.log("Error sending email:", error);
   }

@@ -7,7 +7,7 @@ import User from "../Models/userModel.js";
 // User sign up
 export const signUp = async (req, res) => {
   try {
-    const { firstName, middleName, lastName, email, phone, password } =
+    const { firstName, middleName, lastName, role, email, phone, password } =
       req.body;
 
     const restaurantId = req.params.id;
@@ -17,7 +17,11 @@ export const signUp = async (req, res) => {
         .status(300)
         .json({ message: "password is required, please enter your password." });
     }
-    const isExist = await User.findOne({ email });
+    const isExist = await User.findOne({
+      email,
+      restaurantId,
+    });
+
     if (isExist) {
       return res
         .status(401)
@@ -32,6 +36,7 @@ export const signUp = async (req, res) => {
       lastName,
       email,
       phone,
+      role,
       password: hashedPassword,
       restaurantId: restaurantId,
     });

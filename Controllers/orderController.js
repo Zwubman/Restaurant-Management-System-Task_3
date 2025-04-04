@@ -10,6 +10,7 @@ import Reserve from "../Models/reserveModel.js";
 import {
   sendPaymentMailNotification,
   sendOrderEmailNotification,
+  sendInventoryReportMailNotification,
 } from "../Helpers/sendMail.js";
 
 //To order the item from menu
@@ -70,6 +71,15 @@ export const placeOrder = async (req, res) => {
       return res.status(404).json({ message: "Item not found." });
     }
 
+    const manager = await User.findOne({
+      role: "Manager",
+      restaurantId: restaurantId,
+    });
+
+    if (!manager) {
+      return res.status(404).json({ message: "Restaurant Manager not found." });
+    }
+
     // Calculate the expected total price
     const expectedTotalPrice = quantity * item.price;
 
@@ -88,18 +98,36 @@ export const placeOrder = async (req, res) => {
 
     // Validate that all required ingredients have enough stock before proceeding
     for (let ingredient of item.ingredients) {
-      const inventories = await Inventory.findById(ingredient.ingredientId);
-      if (!inventories) {
+      const inventory = await Inventory.findById(ingredient.ingredientId);
+      if (!inventory) {
         return res.status(404).json({
           message: `Ingredient ${ingredient.ingredientId} not found.`,
         });
       }
 
+      // const ingredientName = inventory.ingredientName;
+      // const availableQuantity = inventory.availableQuantity;
+      // const requiredQuantity = quantity * ingredient.amountUsedPerItem;
+
+      const { ingredientName, availableQuantity, supliedAmount } = inventory;
       const requiredQuantity = quantity * ingredient.amountUsedPerItem;
-      if (inventories.availableQuantity < requiredQuantity) {
-        // If any ingredient is insufficient, mark the item as unavailable and prevent the order
-        item.isAvailable = false;
-        await item.save();
+
+      // Notify the manager if available stock is below 15% of supplied amount
+      if (availableQuantity <= 0.15 * supliedAmount) {
+        await sendInventoryReportMailNotification(
+          manager.email,
+          restaurantName,
+          ingredientName,
+          availableQuantity
+        );
+      }
+
+      // If any ingredient is insufficient, mark the item as unavailable and prevent the order
+      if (availableQuantity < requiredQuantity) {
+        if (item.isAvailable) {
+          item.isAvailable = false;
+          await item.save();
+        }
         return res.status(400).json({
           message:
             "The item you want to order is not available. Please choose another item or wait until it becomes available.",
@@ -111,8 +139,7 @@ export const placeOrder = async (req, res) => {
     for (let ingredient of item.ingredients) {
       const inventories = await Inventory.findById(ingredient.ingredientId);
       if (inventories) {
-        inventories.availableQuantity -=
-          quantity * ingredient.amountUsedPerItem;
+        availableQuantity -= quantity * ingredient.amountUsedPerItem;
         await inventories.save();
       }
     }
@@ -208,7 +235,6 @@ export const cancelOrder = async (req, res) => {
         canOrder.orderStatus === "Canceled"
     );
 
-
     const type = "Order Cancellation";
     await sendOrderEmailNotification(
       userEmail,
@@ -218,7 +244,7 @@ export const cancelOrder = async (req, res) => {
       order.phone,
       menuItemName,
       order.quantity,
-      type,
+      type
     );
 
     res
