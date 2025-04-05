@@ -20,13 +20,13 @@ cron.schedule("0 * * * *", async () => {
 
       // Calculate the timeDifferenceference between current time and the order's time
       const timeDifference = currentTime - new Date(orderTime);
-      const minutes = Math.floor(timeDifference / (1000 * 60));
+      const hours = Math.floor(timeDifference / (1000 * 60 * 60));
 
       console.log(`Order placed at: ${orderTime}`);
       console.log(`Time time differenceference: ${minutes} minute(s)`);
 
       // If the order was placed more than or equal to 90 minute ago, cancel the order
-      if (minutes >= 90) {
+      if (hours >= 6) {
         await Order.updateMany(
           { _id: order._id },
           {
@@ -73,7 +73,6 @@ cron.schedule("0 0 1 */1 *", async () => {
 
       // If the order is older than or equal to 30 days, proceed with deletion
       if (days >= 30) {
-        // Find the user who has this order in their 'myOrders' array
         const user = await User.findOne({ myOrders: order._id });
 
         if (user) {

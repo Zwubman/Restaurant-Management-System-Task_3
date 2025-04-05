@@ -3,35 +3,46 @@ import bcrypt from "bcryptjs";
 import User from "../Models/userModel.js";
 import Restaurant from "../Models/restaurantModel.js";
 
-//Register new Employee
+// Registers a new employee by only manager of the restauant for the  restaurant
 export const registerNewEmployee = async (req, res) => {
   try {
     const { email, role, salary } = req.body;
+    const userId = req.user._id;
 
-    const user = await User.findOne({ email: email }).populate("restaurantId");
+    // Validate that both salary and role are provided
+    if (!email || !salary || !role) {
+      return res.status(300).json({
+        message: "Employee salary, role and email is required. ",
+      });
+    }
 
-    const restaurant = user.restaurantId;
-    const salaryCurrency = restaurant.currency;
+    // Check if the user is already registered as an employee or not
+    if (user.email == email && user.role == role && user.salary == salary) {
+      return res.status(400).json({
+        message: "User already registered as employee in this restaurant",
+      });
+    }
+
+    // Find the user by their user ID to get their restaurant ID
+    const user = await User.findOne(userId);
+    const restaurantIdentification = manager.restaurantId;
+
+    //Find a user already log in thse system to register as the new employee for these restaurant
+    const employee = await User.findOne({
+      email: email,
+      restaurantIdentification,
+    }).populate("restaurantId");
 
     if (!user) {
       return res.status(400).json({ message: "User has not sign Up." });
     }
 
-    if (!salary || !role) {
-      return res.status(300).json({
-        message: "Employee salary, role is required. ",
-      });
-    }
+    // Get the restaurant details associated with the found user
+    const restaurant = user.restaurantId;
+    const salaryCurrency = restaurant.currency;
 
-    // Check if there are no changes
-    if (user.email == email && user.role == role && user.salary == salary) {
-      return res.status(400).json({
-        message: "Nothing is changed, please make some changes to update.",
-      });
-    }
-
-    //Register user as new Employee
-    const employee = await User.findOneAndUpdate(
+    //Register user as new Employee for the restaurant of restaurant id
+    const registerdEmployee = await User.findOneAndUpdate(
       { email: email },
       {
         $set: {
@@ -44,7 +55,8 @@ export const registerNewEmployee = async (req, res) => {
       { new: true }
     );
 
-    if (!employee) {
+    // If no registered employee is found or updated, return an error
+    if (!registerdEmployee) {
       return res
         .status(300)
         .json({ message: "User not found or not registered as Employee" });
@@ -59,19 +71,19 @@ export const registerNewEmployee = async (req, res) => {
   }
 };
 
-//Update password
+// Updates the user's password after validating current password
 export const updatePassword = async (req, res) => {
   try {
     const { currentPassword, newPassword, confirmNewPassword } = req.body;
     const userId = req.user._id;
-    const user = await user.findOne({ userId });
-    // const userId = req.params.id
-    // const user = await User.findOne({_id: userId});
 
+    // Check the user is exist in the database by their user ID
+    const user = await user.findOne({ userId });
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
+    // Compare the current password entered by the user with the stored password in the database
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.status(300).json({
@@ -80,12 +92,14 @@ export const updatePassword = async (req, res) => {
       });
     }
 
+    // Check if the new password and the confirmation password match
     if (newPassword !== confirmNewPassword) {
       return res.status(300).json({
         message: "New password don not match, please make similar.",
       });
     }
 
+    // Hash the new password before storing it in the database
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     user.password = hashedPassword;
@@ -98,25 +112,25 @@ export const updatePassword = async (req, res) => {
   }
 };
 
-//Get all Employee for the company
+// Retrieves all employees for a specific restaurant
 export const getAllEmployee = async (req, res) => {
   try {
     const userId = req.user.id;
-    const user = await User.findOne({ _id: userId }).populate(
-      "restaurantId",
-      "restaurantName"
-    );
 
-    const restaurant = user.restaurantId;
+    // Find the user in the database using their user ID and populate the restaurantId field
+    const user = await User.findOne({ _id: userId }).populate("restaurantId");
 
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
 
+    const restaurant = user.restaurantId;
+
     if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not found" });
     }
 
+    // Ensure the user is an employee (i.e., role is not "Customer" and salary is not null)
     if (user.role !== "Customer" && user.salary !== null) {
       return res
         .status(200)
@@ -125,11 +139,12 @@ export const getAllEmployee = async (req, res) => {
   } catch (error) {}
 };
 
-//Get employee by Id
+// Function to get an employee by their ID
 export const getEmployeeById = async (req, res) => {
   try {
     const userId = req.params.id;
 
+    // Find the user (employee) in the database using the userId
     const employee = await User.findOne({ _id: userId }).select(
       "firstName middleName lastName email phone role salary"
     );
@@ -137,13 +152,12 @@ export const getEmployeeById = async (req, res) => {
       return res.status(404).json({ message: "Employee not found." });
     }
 
+    // This checks that the user is an actual employee and not just a customer
     if (employee.role == "Customer" && employee.salary == null) {
-      return res
-        .status(401)
-        .json({
-          message:
-            "You try to found users not employee, please find employee by correct id.",
-        });
+      return res.status(401).json({
+        message:
+          "You try to found users not employee, please find employee by correct id.",
+      });
     }
 
     res.status(200).json({ message: "Employee found by id:", employee });

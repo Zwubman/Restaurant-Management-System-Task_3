@@ -2,7 +2,7 @@ import mongoose, { modelNames } from "mongoose";
 import Menu from "../Models/menuModel.js";
 import Restaurant from "../Models/restaurantModel.js";
 
-//Add a items into menu
+//Function to add a new menu item to a restaurant's menu
 export const addMenuItem = async (req, res) => {
   try {
     const { menuItemName, category, price, isAvailable, ingredients } =
@@ -23,6 +23,7 @@ export const addMenuItem = async (req, res) => {
         .json({ message: "Item is already added into the menu." });
     }
 
+    // Create a new menu item document
     const item = await new Menu({
       menuItemName,
       category,
@@ -43,12 +44,13 @@ export const addMenuItem = async (req, res) => {
   }
 };
 
-//Update items in menu
+//Function to update a menu item by its ID
 export const updateMenuItem = async (req, res) => {
   try {
     const { menuItemName, category, price } = req.body;
     const menuId = req.params.id;
 
+    // Find the menu item by ID and update it with new values
     const item = await Menu.findOneAndUpdate(
       { _id: menuId },
       {
@@ -58,7 +60,7 @@ export const updateMenuItem = async (req, res) => {
           price,
         },
       },
-      { new: true }
+      { new: true } // Return the updated document
     );
 
     if (!item) {
@@ -72,7 +74,7 @@ export const updateMenuItem = async (req, res) => {
   }
 };
 
-//Add ingredients into the menu item
+// Function to add ingredients to a specific menu item
 export const addIngredientsToItem = async (req, res) => {
   try {
     const { ingredients } = req.body;
@@ -133,11 +135,14 @@ export const removeIngredeintFromItem = async (req, res) => {
   try {
     const { ingredientId } = req.body;
     const itemId = req.params.id;
+
+    // Check the menu item is exist
     const item = await Menu.findOne({ _id: itemId });
     if (!item) {
       return res.status(404).json({ message: "Menu item is not found." });
     }
 
+    // Check if the ingredient exists in the item's ingredients list
     const isExist = await item.ingredients.some((ingMenu) => {
       return ingMenu.ingredientId.toString() === ingredientId.toString();
     });
@@ -148,6 +153,7 @@ export const removeIngredeintFromItem = async (req, res) => {
       });
     }
 
+    // Filter out the ingredient to remove it from the list
     item.ingredients = await item.ingredients.filter((ingMenu) => {
       return ingMenu.ingredientId.toString() !== ingredientId.toString();
     });
@@ -161,7 +167,7 @@ export const removeIngredeintFromItem = async (req, res) => {
   }
 };
 
-//Delete menu item from menu
+// Delete (soft delete) a menu item by marking it as unavailable
 export const deleteMenuItemById = async (req, res) => {
   try {
     const itemId = req.params.id;
@@ -172,6 +178,7 @@ export const deleteMenuItemById = async (req, res) => {
       return res.status(404).json({ message: "Menu item not found." });
     }
 
+    // Mark the item as unavailable (soft delete)
     item.isAvailable = false;
 
     await item.save();
@@ -195,6 +202,7 @@ export const makeAvailableItem = async (req, res) => {
       return res.status(404).json({ message: "Item not found." });
     }
 
+    // Mark the item as available (undoing the soft-delete)
     item.isAvailable = true;
 
     await item.save();
@@ -208,9 +216,10 @@ export const makeAvailableItem = async (req, res) => {
   }
 };
 
-//Get all undeleted menu Item
+// Get all menu items from the menu
 export const getAllMenuItem = async (req, res) => {
   try {
+    // Fetch all items from the Menu collection
     const items = await Menu.find();
     if (!items) {
       return res

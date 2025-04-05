@@ -109,7 +109,6 @@ export const placeOrder = async (req, res) => {
         });
       }
 
-    
       const requiredQuantity = quantity * ingredient.amountUsedPerItem;
       const supliedAmount = inventory.supliedAmount;
 
@@ -135,10 +134,12 @@ export const placeOrder = async (req, res) => {
       }
     }
 
+    // Check if there are ingredients with low stock and the arrays are consistent
     if (
       ingredientNames.length === availableQuantities.length &&
       ingredientNames.length > 0
     ) {
+      // Send a notification email to the manager with the list of low-stock ingredients
       await sendInventoryReportMailNotification(
         manager.email,
         manager.firstName,
@@ -177,6 +178,7 @@ export const placeOrder = async (req, res) => {
     user.myOrders.push(order._id);
     await user.save();
 
+    //Send Email notification to the user when the user place the order
     const type = "Placement";
     await sendOrderEmailNotification(
       userEmail,
@@ -197,7 +199,7 @@ export const placeOrder = async (req, res) => {
   }
 };
 
-//Cancel order before payement
+// Cancels a pending order, updates its status, and sends a notification email to the user.
 export const cancelOrder = async (req, res) => {
   try {
     const orderId = req.params.id;
@@ -210,6 +212,7 @@ export const cancelOrder = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
+    // Find and update the order by setting its status to "Canceled" if it was "Pending"
     const canceledOrder = await Order.findOneAndUpdate(
       {
         _id: orderId,
@@ -220,8 +223,8 @@ export const cancelOrder = async (req, res) => {
       },
       { new: true }
     )
-      .populate("restaurantId")
-      .populate("menuItemId");
+      .populate("restaurantId") // Populate restaurant details
+      .populate("menuItemId"); // Populate menu item details
 
     if (!canceledOrder) {
       return res.status(404).json({ message: "Order not found." });
@@ -240,6 +243,7 @@ export const cancelOrder = async (req, res) => {
         canOrder.orderStatus === "Canceled"
     );
 
+    // Prepare email notification for order cancellation
     const type = "Order Cancellation";
     await sendOrderEmailNotification(
       userEmail,
@@ -376,7 +380,7 @@ export const payForOrder = async (req, res) => {
     if (!tx_ref) {
       tx_ref = `order-${uuidv4()}`;
       customerOrder.payment.transactionId = tx_ref;
-      await order.save(); // Save transaction ID in DB
+      await order.save();
     }
 
     // Fix phone number format (Remove `+`)
@@ -464,6 +468,7 @@ export const paymentCallback = async (req, res) => {
 
     const chapaData = chapaResponse.data;
 
+    //Check the status is not Success or not
     if (!chapaData || chapaData.status !== "success") {
       return res.status(400).json({
         message: "Failed to verify payment status.",
@@ -521,8 +526,8 @@ export const paymentCallback = async (req, res) => {
             (customerOrder.payment.amountPaid = amountPaid),
             (customerOrder.payment.paymentDate = new Date());
 
-          const type = "order";
           // Send Payment Notification
+          const type = "order";
           sendPaymentMailNotification(
             userEmail,
             customerOrder.name,
@@ -577,7 +582,7 @@ export const getAllOrderPerItem = async (req, res) => {
   }
 };
 
-//Get my orders
+// Retrieves all orders placed by the currently logged-in user
 export const getMyOrders = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -589,10 +594,11 @@ export const getMyOrders = async (req, res) => {
     }
 
     const myOrders = [];
+    // Loop through each of the user's orders
     for (let order of user.myOrders) {
       const orderId = order._id;
-      // console.log(orderId);
 
+      // Fetch detailed information for each order
       const orders = await Order.findOne(orderId)
         .populate({
           path: "menuItemId",
@@ -601,23 +607,23 @@ export const getMyOrders = async (req, res) => {
             {
               path: "ingredients.ingredientId",
               model: "Inventory",
-              select: "ingredientName unit",
+              select: "ingredientName unit", // Get ingredient name and unit
             },
             {
-              path: "restaurantId", // Populate restaurant details including currency
+              path: "restaurantId",
               model: "Restaurant",
-              select: "currency",
+              select: "currency", // Get restaurant's currency
             },
           ],
         })
         .populate({
           path: "restaurantId",
           select:
-            "restaurantName restaurantAddress restaurantEmail restaurantPhone",
+            "restaurantName restaurantAddress restaurantEmail restaurantPhone", // Get restaurant contact info
         })
         .select(
           "orderedBy.name orderedBy.tableNumber orderedBy.quantity orderedBy.totalPrice orderedBy.orderStatus"
-        )
+        ) // Select specific fields from the order
         .exec();
 
       if (!orders) {
@@ -626,6 +632,7 @@ export const getMyOrders = async (req, res) => {
           .json({ message: "Order placed by thise user not found." });
       }
 
+      // Add the populated order to the results array
       myOrders.push(orders);
     }
 
@@ -636,11 +643,9 @@ export const getMyOrders = async (req, res) => {
   }
 };
 
-//Get All Order
+// Retrieves all orders in the system of specific restaurant
 export const getAllOrder = async (req, res) => {
   try {
-    const { orderId } = req.body;
-
     const userId = req.user._id;
 
     const user = await User.findOne(userId);
@@ -649,7 +654,7 @@ export const getAllOrder = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
-    const orders = await Order.find(orderId);
+    const orders = await Order.find({ restaurantId: user.restaurantId });
 
     if (!orders) {
       return res.status(404).json({ message: "There is no orders." });
@@ -664,12 +669,20 @@ export const getAllOrder = async (req, res) => {
   }
 };
 
-//Update order status
+// Update the status of an order (only works for confirmed orders and only updated by Chef)
 export const updateOrderStatus = async (req, res) => {
   try {
     const { orderStatus } = req.body;
     const orderId = req.params.id;
+    const userId = req.user._id;
 
+    const user = await User.findOne(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    // Find and update the order status only if it's in "Confirmed" status
     const updatedOrder = await Order.findOneAndUpdate(
       {
         _id: orderId,

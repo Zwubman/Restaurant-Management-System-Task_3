@@ -4,19 +4,30 @@ import cookie from "cookie-parser";
 import bcrypt from "bcryptjs";
 import User from "../Models/userModel.js";
 
-// User sign up
+// Register a new user and associate them with a restaurant
 export const signUp = async (req, res) => {
   try {
-    const { firstName, middleName, lastName, role, email, phone, password } =
+    const { firstName, middleName, lastName, email, phone, password } =
       req.body;
 
     const restaurantId = req.params.id;
 
-    if (!password) {
-      return res
-        .status(300)
-        .json({ message: "password is required, please enter your password." });
+    // Ensure all feild are provided
+    if (
+      !password ||
+      !firstName ||
+      !middleName ||
+      !lastName ||
+      !email ||
+      !phone
+    ) {
+      return res.status(300).json({
+        message:
+          "password, firstName, middleName, lastName, email and phone are required, please enter your password.",
+      });
     }
+
+    // Check if a user with the same email already exists under the same restaurant
     const isExist = await User.findOne({
       email,
       restaurantId,
@@ -28,8 +39,10 @@ export const signUp = async (req, res) => {
         .json({ message: "User already exist please sign in." });
     }
 
+    // Hash the password before saving
     const hashedPassword = await bcrypt.hash(password, 10);
-    //Register new user
+
+    // Create a new user instance
     const user = new User({
       firstName,
       middleName,
@@ -50,25 +63,28 @@ export const signUp = async (req, res) => {
   }
 };
 
-//Sign in registered user
+// Sign in registered user
 export const signIn = async (req, res) => {
   try {
     const { email, password } = req.body;
+
     const user = await User.findOne({ email });
 
+    // If user doesn't exist, prompt them to sign up
     if (!user) {
       return res.status(404).json({
         message: "User has not sign up plaese sign up before sign in",
       });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const isMatch = await bcrypt.compare(password, hashedPassword);
+    // compare raw input password with hashed password stored in DB.
+    const isMatch = await bcrypt.compare(password, user.password);
 
     if (!isMatch) {
       return res.status(400).json({ message: "Invalid email or password" });
     }
 
+    // Generate access token (valid for 1 day)
     const userAccessToken = jwt.sign(
       {
         id: user._id,
@@ -79,6 +95,7 @@ export const signIn = async (req, res) => {
       { expiresIn: "1d" }
     );
 
+    // Generate refresh token (valid for 30 days)
     const userRefreshToken = jwt.sign(
       {
         id: user._id,
@@ -89,9 +106,11 @@ export const signIn = async (req, res) => {
       { expiresIn: "30d" }
     );
 
+    // Store tokens as cookies in the response
     res.cookie("userAccessToken", userAccessToken);
     res.cookie("userRefreshToken", userRefreshToken);
 
+    // Send successful login response with tokens
     res.status(200).json({
       message: "Log in successfully.",
       userAccessToken,

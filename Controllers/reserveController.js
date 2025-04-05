@@ -12,12 +12,13 @@ import {
 
 dotenv.config();
 
-//To Create reservation table
+// Creates a reservation table for a specific restaurant if it doesn't already exist
 export const createReservationTable = async (req, res) => {
   try {
     const { tableNumber } = req.body;
     const restaurantId = req.params.id;
 
+    // Checking if the restaurant exists by the given ID
     const restaurant = await Restaurant.findOne({ _id: restaurantId });
     if (!restaurant) {
       return res.status(404).json({
@@ -26,20 +27,24 @@ export const createReservationTable = async (req, res) => {
       });
     }
 
+    // Checking if the reservation for this table already exists
     const reservation = await Reserve.findOne({ tableNumber: tableNumber });
-
     if (reservation) {
       return res
         .status(303)
         .json({ message: "Table reservation is already created." });
     }
 
+    // Generate a unique transaction reference for the reservation
     const tx_ref = `reserve-${uuidv4()}`;
+
+    // Creating a new reservation for the table
     const table = await new Reserve({
       tableNumber,
       restaurantId: restaurantId,
     });
 
+    // Saving the new reservation to the database
     await table.save();
 
     res
@@ -53,11 +58,12 @@ export const createReservationTable = async (req, res) => {
   }
 };
 
-//Delete reserve table
+// Deletes a reserved table from the reservation collection
 export const deleteReserveTable = async (req, res) => {
   try {
     const { tableNumber } = req.body;
 
+    //Attempting to find and delete the reserved table of table number
     const deletedTable = await Reserve.findOneAndDelete({
       tableNumber: tableNumber,
     });
@@ -75,7 +81,7 @@ export const deleteReserveTable = async (req, res) => {
   }
 };
 
-// User can book reservation
+// Books a reservation for a specified table in a restaurant
 export const bookReservation = async (req, res) => {
   try {
     const {
@@ -89,14 +95,18 @@ export const bookReservation = async (req, res) => {
     const userId = req.user._id;
     const userEmail = req.user.email;
 
+    // Check if reservation for the specified table exists
     const reservation = await Reserve.findOne({
       tableNumber: tableNumber,
     }).populate("restaurantId");
-
-    const user = await User.findOne({ _id: userId });
-
     if (!reservation) {
       return res.status(404).json({ message: "Reserve not found." });
+    }
+
+    // Check if user for the specified user id exists
+    const user = await User.findOne({ _id: userId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
     }
 
     const restaurantName = reservation.restaurantId.restaurantName;
@@ -109,7 +119,10 @@ export const bookReservation = async (req, res) => {
     if (!Array.isArray(reservation.reservedBy)) {
       reservation.reservedBy = [];
     }
+
+    // Generate a unique transaction reference for the reservation
     const tx_ref = `reserve-${uuidv4()}`;
+
     // Loop through reservedBy array to check all reservations
     for (const reserved of reservation.reservedBy) {
       const startTime = new Date(reserved.reservationStartDateTime);
@@ -120,6 +133,7 @@ export const bookReservation = async (req, res) => {
         reserved.tx_ref = `reserve-${uuidv4()}`;
       }
 
+      // If reservationStatus is confirmed and the entered time overlaps with an existing reservation, reject the booking
       if (
         reservationStatus === "Confirmed" &&
         enteredTime >= startTime &&
@@ -132,7 +146,7 @@ export const bookReservation = async (req, res) => {
       }
     }
 
-    //To extract only date in the foramt of "2025-03-29"
+    // Format the start and end date for email notification (e.g., "March 29, 2025")
     const dateTime1 = new Date(reservationStartDateTime);
     const dateTime2 = new Date(reservationEndDateTime);
     const startDate = dateTime1.toLocaleDateString("en-US", {
@@ -146,7 +160,7 @@ export const bookReservation = async (req, res) => {
       day: "numeric",
     });
 
-    //To extract only hours and minutes to send it in email
+    // Format the start and end time (e.g., "12:30 PM")
     const startHours = String(dateTime1.getUTCHours()).padStart(2, "0");
     const startMinute = String(dateTime1.getUTCMinutes()).padStart(2, "0");
     const endHours = String(dateTime2.getUTCHours()).padStart(2, "0");
@@ -158,6 +172,7 @@ export const bookReservation = async (req, res) => {
     const startTime = `${startHours}:${startMinute} ${amPm1}`;
     const endTime = `${endHours}:${endMinute} ${amPm2}`;
 
+    // Add the new reservation to the reservation system
     reservation.reservedBy.push({
       userId,
       customerName,
@@ -168,10 +183,12 @@ export const bookReservation = async (req, res) => {
     });
     await reservation.save();
 
+    // Find the specific reservation object that was added
     const reservedBy = await reservation.reservedBy.find(
       (resBy) => resBy.tx_ref === tx_ref
     );
 
+    // Add the reservation to the user's "myReservation" list
     user.myReservation.push({
       reservationId: reservation._id,
       reservedById: reservedBy._id,
@@ -204,21 +221,23 @@ export const bookReservation = async (req, res) => {
   }
 };
 
-//Cancel to booked reservation
+// Cancels a previously booked reservation
 export const cancelBookedReservation = async (req, res) => {
   try {
     const { tableNumber } = req.body;
 
     const userId = req.user._id;
     const userEmail = req.user.email;
-    const user = await User.findOne({ _id: userId });
 
+    //Check the user with the user id is exit
+    const user = await User.findOne({ _id: userId });
     if (!user) {
       return res
         .status(404)
         .json({ message: "User to cancel reservation not foun" });
     }
 
+    // Check the reservation for the given table number is exist and populate restaurant details
     const reservation = await Reserve.findOne({
       tableNumber: tableNumber,
     }).populate("restaurantId");
@@ -229,6 +248,7 @@ export const cancelBookedReservation = async (req, res) => {
         .json({ message: "Reservation you want to cancel is not found." });
     }
 
+    // Find the reservation entry for the specific user and ensure it is not canceled or paid
     const canceledReservation = reservation.reservedBy.find(
       (exUser) =>
         exUser.userId.toString() === userId.toString() &&
@@ -243,12 +263,13 @@ export const cancelBookedReservation = async (req, res) => {
       });
     }
 
+    // Update the reservation status to 'Canceled'
     canceledReservation.reservationStatus = "Canceled";
 
     const customerName = canceledReservation.customerName;
     const restaurantName = reservation.restaurantId.restaurantName;
 
-    //To extract only date in the foramt of "2025-03-29"
+    // Extract and format the start and end dates for the email
     const dateTime1 = new Date(canceledReservation.reservationStartDateTime);
     const dateTime2 = new Date(canceledReservation.reservationEndDateTime);
     const startDate = dateTime1.toLocaleDateString("en-US", {
@@ -262,7 +283,7 @@ export const cancelBookedReservation = async (req, res) => {
       day: "numeric",
     });
 
-    //To extract only hours and minutes to send it in email
+    // Extract the start and end times in hours and minutes to include in the email
     const startHours = String(dateTime1.getUTCHours()).padStart(2, "0");
     const startMinute = String(dateTime1.getUTCMinutes()).padStart(2, "0");
     const endHours = String(dateTime2.getUTCHours()).padStart(2, "0");
@@ -274,8 +295,10 @@ export const cancelBookedReservation = async (req, res) => {
     const startTime = `${startHours}:${startMinute} ${amPm1}`;
     const endTime = `${endHours}:${endMinute} ${amPm2}`;
 
+    // Save the updated reservation
     await reservation.save();
 
+    // Set the email type as cancellation and send the notification
     const type = "cancellation";
     sendEmailNotification(
       userEmail,
@@ -296,47 +319,53 @@ export const cancelBookedReservation = async (req, res) => {
   }
 };
 
-//Get my reservation
+// Fetches the reservations made by the logged-in user
 export const getMyReservation = async (req, res) => {
   try {
+    // Retrieve the user ID from the authenticated user's request
     const userId = req.user._id;
 
     const user = await User.findOne(userId).populate("myOrders");
-
     if (!user) {
       return res
         .status(404)
         .json({ message: "User trying to get my order is not found" });
     }
 
+    // Initialize an empty array to store the found reservations
     const foundReservations = [];
 
+    // Loop through each reservation in the user's 'myReservation' list
     for (let reservations of user.myReservation) {
-      const reservationId = reservations;
+      const reservationId = reservations.reservationId;
       console.log(reservationId);
 
       const reservation = await Reserve.findOne({ _id: reservationId })
         .populate({
           path: "restaurantId",
           select:
-            "restaurantName restaurantEmail restaurantPhone restaurantAddress",
+            "restaurantName restaurantEmail restaurantPhone restaurantAddress", // Only select necessary fields from the restaurant
         })
         .select(
+          // Select necessary fields from the 'reservedBy' array
           "tableNumber reservedBy.customerName reservedBy.customerPhone " +
             "reservedBy.reservationStartDateTime reservedBy.reservationEndDateTime " +
             "reservedBy.reservationStatus reservedBy.paymentStatus " +
             "reservedBy.paymentMethod reservedBy.amountPaid"
         );
 
+      // If reservation is not found, log and skip to the next reservation
       if (!reservation) {
         console.log(
           `Reservation with ID ${reservationId} not found. Skipping...`
         );
         continue;
       }
+      // Push the found reservation into the 'foundReservations' array
       foundReservations.push(reservation);
     }
 
+    // If reservations are found, return them in the response
     if (foundReservations.length > 0) {
       return res
         .status(200)
@@ -352,13 +381,13 @@ export const getMyReservation = async (req, res) => {
   }
 };
 
-// Pay for the reservation
+// Handles payment initialization for a reservation
 export const payForReservation = async (req, res) => {
   try {
     const { tableNumber, paymentMethod } = req.body;
     const userId = req.user._id;
 
-    // Find reservation
+    // Find the reservation by table number and user ID
     const reservation = await Reserve.findOne({
       tableNumber,
       "reservedBy.userId": userId,
@@ -370,15 +399,15 @@ export const payForReservation = async (req, res) => {
         .json({ message: "Reservation not found or not booked by this user." });
     }
 
+    // Find the specific reservation for the user
     const reserve = reservation.reservedBy.find(
       (exUser) => exUser.userId.toString() === userId.toString()
     );
 
-    // const tx_ref = `reserve_${userId}_${Date.now()}`;
-    // reserve.tx_ref = tx_ref;
-    // await reserve.save();
+    // Get the transaction reference (tx_ref) for the reservation
     const tx_ref = reserve.tx_ref;
 
+    // Check if the reservation is in a payable state (all reserved entries should be in "Pending" status)
     for (let reserved of reservation.reservedBy) {
       if (reserved.reservationStatus !== "Pending") {
         return res
@@ -387,7 +416,7 @@ export const payForReservation = async (req, res) => {
       }
     }
 
-    // Get user info
+    // Get the user info for the payment process
     const user = await User.findById(userId);
     const customer = reservation.reservedBy.find(
       (r) => r.userId.toString() === userId.toString()
@@ -437,6 +466,7 @@ export const payForReservation = async (req, res) => {
       }
     );
 
+    // If Chapa's response status is not "success", return an error
     if (chapaResponse.data.status !== "success") {
       return res.status(500).json({
         message: "Payment initialization failed",
@@ -458,11 +488,12 @@ export const payForReservation = async (req, res) => {
     //   }
     // );
 
-    //update the payment method of the order
+    //Find the reservation with reservation reference tx_ref
     const updatedReserve = reservation.reservedBy.find(
       (isEX) => isEX.tx_ref.toString() === tx_ref.toString()
     );
 
+    // If a matching reservation entry is found, update its payment method
     if (updatedReserve) {
       updatedReserve.paymentMethod = paymentMethod;
 
@@ -471,6 +502,7 @@ export const payForReservation = async (req, res) => {
       console.log("No matching reservation found for tx_ref:", tx_ref);
     }
 
+    // Respond with a success message and the payment URL from Chapa
     res.status(200).json({
       message: "Payment initialized successfully.",
       tx_ref: tx_ref,
@@ -485,13 +517,14 @@ export const payForReservation = async (req, res) => {
   }
 };
 
-// Handle payment callback
+// Handles the callback from Chapa after a payment is processed
 export const paymentCallback = async (req, res) => {
   const tx_ref = req.query.tx_ref;
   const userEmail = req.user.email;
 
   console.log("Raw Callback Query Params:", req.query);
 
+  // If the transaction reference (tx_ref) is missing, return a 400 error
   if (!tx_ref) {
     return res
       .status(400)
@@ -509,8 +542,10 @@ export const paymentCallback = async (req, res) => {
       }
     );
 
+    // Extract Chapa response data
     const chapaData = chapaResponse.data;
 
+    // If Chapa response status is not "success", return an error response
     if (!chapaData || chapaData.status !== "success") {
       return res.status(400).json({
         message: "Failed to verify payment status.",
@@ -518,6 +553,7 @@ export const paymentCallback = async (req, res) => {
       });
     }
 
+    // Get actual payment status and transaction reference from Chapa's verified data
     const actualStatus = chapaData.data.status;
     const transactionReference = chapaData.data.tx_ref;
     console.log("Verified Payment Status from Chapa:", actualStatus);
@@ -527,27 +563,30 @@ export const paymentCallback = async (req, res) => {
       "reservedBy.tx_ref": tx_ref,
     }).populate("restaurantId");
 
+    if (!reservation) {
+      return res.status(404).json({ message: "Reservation not found." });
+    }
+
+    // Find specific user information from the reservation
     const userInfo = await reservation.reservedBy.find(
       (usIn) => usIn.tx_ref === tx_ref
     );
 
+    // If user info is not found, return a 404 error
     if (!userInfo) {
       return res
         .status(404)
         .json({ message: "Reservaion information not found." });
     }
 
+    // Get the currency and amount paid for the reservation and restaurant name
     const currency = reservation.restaurantId.currency;
     const amountPaid = `${reservation.prepaymentAmount} ${currency}`;
-
     const restaurantName = reservation.restaurantId.restaurantName;
-
-    if (!reservation) {
-      return res.status(404).json({ message: "Reservation not found." });
-    }
 
     // Update reservation status based on actual payment status
     if (actualStatus === "success") {
+      // If payment is successful, update reservation status to "Paid" and "Confirmed" and other field
       const reservation = await Reserve.findOneAndUpdate(
         {
           "reservedBy.tx_ref": tx_ref,
@@ -567,7 +606,7 @@ export const paymentCallback = async (req, res) => {
         }
       );
 
-      //Send email notification
+      // Send email notification to the user about the successful payment
       const type = "reservation";
       sendPaymentMailNotification(
         userEmail,
@@ -579,6 +618,7 @@ export const paymentCallback = async (req, res) => {
         type
       );
     } else {
+      // If payment failed, update reservation status to "Failed" and "Pending" and other field
       const reservation = await Reserve.findOneAndUpdate(
         {
           "reservedBy.tx_ref": tx_ref,

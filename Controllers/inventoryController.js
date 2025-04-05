@@ -3,7 +3,7 @@ import Inventory from "../Models/inventoryModel.js";
 import Restaurant from "../Models/restaurantModel.js";
 import User from "../Models/userModel.js";
 
-//Create Ingredient
+// Adds a new inventory item to the restaurant's inventory if it doesn't already exist
 export const addInventory = async (req, res) => {
   try {
     const {
@@ -15,12 +15,15 @@ export const addInventory = async (req, res) => {
     } = req.body;
 
     const restaurantId = req.params.id;
+
+    //find restaurant by id
     const restaurant = await Restaurant.findOne({ _id: restaurantId });
 
-    if (!restaurantId) {
+    if (!restaurant) {
       return res.status(404).json({ message: "Restaurant not foun." });
     }
 
+    // Checking if the ingredient already exists in the restaurant's inventory
     const existingInventory = await Inventory.findOne({
       ingredientName,
       restaurantId,
@@ -30,6 +33,7 @@ export const addInventory = async (req, res) => {
       return res.status(303).json({ message: "Inventory already added." });
     }
 
+    // Creating a new inventory entry with the provided details
     const inventory = await new Inventory({
       ingredientName,
       ingredientCategory,
@@ -50,11 +54,13 @@ export const addInventory = async (req, res) => {
   }
 };
 
-//Get all Ingredient created early
+//Retreive all Ingredient from the database
 export const getAllIngredient = async (req, res) => {
   try {
+    //Find all ingredients in the database
     const ingredients = await Inventory.find();
 
+    //Check whether the database has registered ingredients or not
     if (!ingredients) {
       return res.status(404).json({
         message: "There is not registered ingredient in inventory model.",
@@ -70,13 +76,15 @@ export const getAllIngredient = async (req, res) => {
   }
 };
 
-//Get registered ingredient by id
+//Retrieve specific ingredient from database  by  ingredient id
 export const getIngredientById = async (req, res) => {
   try {
     const ingredientId = req.params.id;
 
+    //find ingredient by ingredient id
     const ingredient = await Inventory.findOne({ _id: ingredientId });
 
+    //Check whether found it or not
     if (!ingredient) {
       return res.status(404).json({ message: "Ingredient not found." });
     }
@@ -91,15 +99,16 @@ export const getIngredientById = async (req, res) => {
 };
 
 //Update created ingredient
-export const updateInventoryById = async (req, res) => {
+export const updateIngredientById = async (req, res) => {
   try {
     const { ingredientName, ingredientCategory, availableQuantity, unit } =
       req.body;
 
-    const inventoryId = req.params.id;
+    const ingredientId = req.params.id;
 
+    //find ingredient by ingredient id and update it
     const inventory = await Inventory.findOneAndUpdate(
-      { _id: inventoryId },
+      { _id: ingredientId },
       {
         $set: {
           ingredientName,
@@ -111,6 +120,7 @@ export const updateInventoryById = async (req, res) => {
       { new: true }
     );
 
+    //Check whether ingredient found and update successfully
     if (!inventory) {
       return res
         .status(404)
@@ -131,6 +141,7 @@ export const deleteIngredientById = async (req, res) => {
   try {
     const ingredientId = req.params.id;
 
+    //find ingredient by ingredient id and delete it
     const ingredient = await Inventory.findOneAndDelete({ _id: ingredientId });
 
     res.status(200).json({ message: "Ingredient deleted successfully." });
@@ -140,7 +151,7 @@ export const deleteIngredientById = async (req, res) => {
   }
 };
 
-//To suplie ingredient in to invetory stock
+// Supplies ingredients into inventory stock when the available quantity is below 15% of the supplied amount
 export const suplieIngredeints = async (req, res) => {
   try {
     const { supliedAmount } = req.body;
@@ -154,16 +165,19 @@ export const suplieIngredeints = async (req, res) => {
       return res.status(404).json({ message: "User not found." });
     }
 
+    //find ingredient by ingredient id
     const ingredient = await Inventory.findOne({ _id: ingredientId });
 
     if (!ingredient) {
       return res.status(404).json({ message: "Ingredient not found. " });
     }
 
+    // Checks if the available quantity is less than or equal to 15% of the supplied amount
     if (ingredient.availableQuantity <= 0.15 * ingredient.supliedAmount) {
       ingredient.supliedAmount = supliedAmount;
       ingredient.availableQuantity += supliedAmount;
 
+      // Logs the supplied information with the user's details
       ingredient.supliedInfo.push({
         supleidBy: userId,
         amount: supliedAmount,
