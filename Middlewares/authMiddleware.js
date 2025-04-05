@@ -135,3 +135,16 @@ export const checkCheifRole = async(req, res, next) =>{
     res.status(500).json({message: "Invalid Credential.", error})
   }
 }
+
+//Check the role of the user is Suplier or not and give the access to the user
+export const checkSuplierRole = async(req, res, next) =>{
+  try{
+    if(req.user.role === "Suplier"){
+      next()
+    }
+    res.status(403).josn({messsage: "Access deneid."})
+  }catch(error){
+    console.log(error);
+    res.status(500).json({message: "Invalid Credential.", error})
+  }
+}

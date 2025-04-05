@@ -7,14 +7,17 @@ import {
   deleteReserveTable,
   payForReservation,
   paymentCallback,
-  getMyReservation
+  getMyReservation,
 } from "../Controllers/reserveController.js";
-import { verifyToken } from "../Middlewares/authMiddleware.js";
+import {
+  verifyToken,
+  checkManagerRole,
+} from "../Middlewares/authMiddleware.js";
 
 const router = express.Router();
 
-router.post("/create-reserve/:id", createReservationTable);
-router.delete("/delete-reservation", deleteReserveTable);
+router.post("/create-reserve/:id", verifyToken, checkManagerRole, createReservationTable);
+router.delete("/delete-reservation", verifyToken, checkManagerRole, deleteReserveTable);
 router.post("/reservation", verifyToken, bookReservation);
 router.post("/cancel-reservation", verifyToken, cancelBookedReservation);
 router.post("/pay", verifyToken,  payForReservation);
