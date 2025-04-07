@@ -196,7 +196,7 @@ export const bookReservation = async (req, res) => {
 
     await user.save();
 
-    //Send email notification with the following details
+    //Send email notification with the following details when the user reserve reservation with the above details
     const type = "booking";
     await sendEmailNotification(
       userEmail,
@@ -298,7 +298,7 @@ export const cancelBookedReservation = async (req, res) => {
     // Save the updated reservation
     await reservation.save();
 
-    // Set the email type as cancellation and send the notification
+    // Set the email type as cancellation and send the notification when user canceled his reservation
     const type = "cancellation";
     sendEmailNotification(
       userEmail,

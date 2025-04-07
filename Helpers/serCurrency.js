@@ -1,3 +1,5 @@
+
+// Set the restaurant currency  related to its country
 const countryCurrencyMap = {
   Ethiopia: "ETB",
   USA: "USD",

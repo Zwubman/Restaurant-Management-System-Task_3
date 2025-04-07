@@ -4,7 +4,7 @@ import cookie from "cookie-parser";
 import bcrypt from "bcryptjs";
 import Restaurant from "../Models/restaurantModel.js";
 
-//Register new Restaurant
+//Register new Restaurant inorder to use this system for many restaurant
 export const registerRestaurant = async (req, res) => {
   try {
     const {

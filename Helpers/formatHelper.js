@@ -1,4 +1,6 @@
-export const formatPriceVirtual = (menuSchema) => {
+
+// create virtual to store the formated price wiht its currency
+export const formatPriceVirtual = (menuSchema) => { 
   menuSchema.virtual("formattedPrice").get(function () {
     if (
       this.restaurantId &&

@@ -265,7 +265,7 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
-// Update order information before payment
+// Update order information before payment only pending order can be updated
 export const updateOrderInfo = async (req, res) => {
   try {
     const { name, quantity, phone, totalPrice } = req.body;
@@ -330,7 +330,7 @@ export const updateOrderInfo = async (req, res) => {
   }
 };
 
-// Pay for placed Order
+// Pay for placed Order (payment for order before canceled)
 export const payForOrder = async (req, res) => {
   try {
     const { orderId, paymentMethod } = req.body;
@@ -443,7 +443,7 @@ export const payForOrder = async (req, res) => {
   }
 };
 
-// Handle payment callback for orders
+// Handle payment callback for orders (if the payment is success to update the order information in database)
 export const paymentCallback = async (req, res) => {
   const { tx_ref } = req.query; // Get transaction reference from query params
 

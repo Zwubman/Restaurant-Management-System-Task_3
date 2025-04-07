@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 
 dotenv.config();
-
+// Send email notification when user reserve and cancel reservation
 export const sendEmailNotification = async (
   userEmail,
   restaurantName,
@@ -167,6 +167,7 @@ export const sendOrderEmailNotification = async (
   }
 };
 
+// Send email notification related to payment for reservation and order
 export const sendPaymentMailNotification = async (
   userEmail,
   customerName,
@@ -237,6 +238,8 @@ export const sendPaymentMailNotification = async (
   }
 };
 
+
+//Send email notification to the manager when the available quantity in stock is less than 15%
 export const sendInventoryReportMailNotification = async (
   managerEmail,
   firstName,
